@@ -1,0 +1,23 @@
+[project]
+name = "ringtones-stats"
+version = "0.1.0"
+description = "Phone Ringtones: first-party, anonymous usage statistics"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6"]
+
+[tool.ruff]
+line-length = 110
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff.lint]
+# FastAPI declares dependencies in argument defaults, by design.
+ignore = ["B008"]

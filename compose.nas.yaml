@@ -1,0 +1,28 @@
+# Phone Ringtones stats on the NAS. Its own project, its own volume, its own
+# tunnel: nothing shared with Sauté.
+#
+#   mkdir -p ~/ringtones-stats && cd ~/ringtones-stats
+#   (copy this file here as compose.yaml, and a .env with the two values below)
+#   sudo docker compose up -d --build
+#
+# The image is built here, from the public repository: no registry, no login.
+services:
+  stats:
+    build: https://github.com/Nowis37/phone-ringtones-stats.git#main
+    restart: unless-stopped
+    environment:
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?set ADMIN_TOKEN in .env: the console password}
+    volumes:
+      - stats-data:/data
+  # No port is published: the only way in is the tunnel, which does TLS.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?create the tunnel in Cloudflare, then paste its token}
+    depends_on:
+      - stats
+
+volumes:
+  stats-data:
