@@ -3,7 +3,11 @@
 #
 #   mkdir -p ~/ringtones-stats && cd ~/ringtones-stats
 #   (copy this file here as compose.yaml, and a .env with the two values below)
-#   sudo docker compose up -d --build
+#   mkdir -p .docker && sudo DOCKER_CONFIG=$PWD/.docker docker compose up -d --build
+#
+# DOCKER_CONFIG is not optional on ZimaOS: under sudo, Docker writes to
+# /root/.docker, and /root is read-only there ("mkdir /root/.docker: read-only
+# file system"). The same command redeploys after a push to the public copy.
 #
 # The image is built here, from the public repository: no registry, no login.
 services:
