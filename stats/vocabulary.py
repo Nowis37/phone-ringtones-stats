@@ -24,10 +24,11 @@ EVENTS: dict[str, dict[str, Any]] = {
     "app_opened": {"cold": YES_NO},
     # The product's one moment of value.
     "ringtone_created": {"best_part": YES_NO, "enhance": YES_NO, "premium": YES_NO,
-                         "source": ("video", "audio")},
+                         "speed": ("normal", "sped_up", "slowed"), "loop": YES_NO,
+                         "source": ("video", "audio", "sound")},
     "ringtone_installed": {},
     "ad_watched": {},
-    "paywall_shown": {"reason": ("general", "sound", "bestPart")},
+    "paywall_shown": {"reason": ("general", "sound", "bestPart", "speed", "loop", "color")},
     "purchase": {"product": ("lifetime", "monthly")},
     "auto_best_part_opened": {"allowed": YES_NO},
     "auto_best_part_started": {},
@@ -38,6 +39,10 @@ EVENTS: dict[str, dict[str, Any]] = {
     "smart_audio_enhance_applied": {},
     "smart_audio_enhance_undone": {},
     "smart_audio_enhance_compared": {"heard": ("original", "enhanced")},
+    # A free user heard the five-second sample of a speed: the one Premium effect
+    # that can be heard before paying. Read against "purchase".
+    "speed_sampled": {"speed": ("sped_up", "slowed")},
+    "app_color_chosen": {"kind": ("auto", "free", "premium")},
     "contact_assignment_started": {"installed": YES_NO},
     "contact_permission_granted": {},
     "contact_permission_denied": {},

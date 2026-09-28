@@ -19,6 +19,8 @@ LABELS = {
     "smart_audio_enhance_applied": "Améliorer le son : allumé",
     "smart_audio_enhance_undone": "Améliorer le son : éteint",
     "smart_audio_enhance_compared": "Améliorer le son : comparaison",
+    "speed_sampled": "Vitesse : aperçu de 5 s écouté",
+    "app_color_chosen": "Couleur de l'app choisie",
     "contact_assignment_started": "Contact : écran ouvert",
     "contact_permission_granted": "Contact : accès accepté",
     "contact_permission_denied": "Contact : accès refusé",
