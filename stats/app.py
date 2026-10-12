@@ -3,6 +3,8 @@
 POST   /v1/events            a batch from one device (closed vocabulary, see vocabulary.py)
 DELETE /v1/devices/{id}      "Effacer mes statistiques" in the app's settings
 GET    /console              the dashboard, behind ADMIN_TOKEN (HTTP Basic, any user name)
+GET    /v1/console.json      the same numbers as JSON, for the shared console on api.getsaute.com,
+                             behind CONSOLE_TOKEN (Bearer)
 GET    /health               for the container
 """
 
@@ -12,13 +14,13 @@ import secrets
 import time
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from . import console, metrics
 from .store import Store
-from .vocabulary import MAX_EVENTS_PER_BATCH, clean
+from .vocabulary import EVENTS, MAX_EVENTS_PER_BATCH, clean
 
 UUID = re.compile(r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$")
 # Envelope fields: short, shaped values only. Anything else is stored as null.
@@ -29,11 +31,20 @@ SHAPES = {
     "lang": re.compile(r"^[a-z]{2}$"),
 }
 MAX_CLOCK_SKEW = 7 * 86400
+# Events the shared console has a place for but the app does not send yet. Each
+# needs a build of the app before it means anything; until then the console says
+# "pas encore collecté" rather than drawing a zero.
+AWAITED = ("screen_viewed", "crash_reported")
 
 
-def create_app(store: Store | None = None, admin_token: str | None = None) -> FastAPI:
+def create_app(store: Store | None = None, admin_token: str | None = None,
+               console_token: str | None = None) -> FastAPI:
     store = store or Store(Path(os.environ.get("DATA_DIR", "/data")) / "stats.sqlite3")
     token = admin_token if admin_token is not None else os.environ.get("ADMIN_TOKEN", "")
+    # Its own secret, not a share of ADMIN_TOKEN: another server holds it, and a
+    # token shared between two readers cannot be rotated for one of them. Empty
+    # means the route answers 401 to everybody.
+    reader = console_token if console_token is not None else os.environ.get("CONSOLE_TOKEN", "")
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     basic = HTTPBasic()
 
@@ -88,5 +99,17 @@ def create_app(store: Store | None = None, admin_token: str | None = None) -> Fa
     @app.get("/console", response_class=HTMLResponse, dependencies=[Depends(admin)])
     def dashboard(tests: int = 0) -> str:
         return console.render(metrics.compute(store, include_tests=bool(tests)), include_tests=bool(tests))
+
+    @app.get("/v1/console.json")
+    def console_json(tests: int = 0, authorization: str = Header(default="")) -> JSONResponse:
+        given = authorization.removeprefix("Bearer ").strip()
+        if not reader or not secrets.compare_digest(given.encode(), reader.encode()):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        numbers = metrics.compute(store, include_tests=bool(tests), days=90)
+        numbers["retention"] = {str(n): list(pair) for n, pair in numbers["retention"].items()}
+        numbers["collected"] = {name: name in EVENTS for name in AWAITED}
+        numbers["vocabulary"] = sorted(EVENTS)
+        numbers["include_tests"] = bool(tests)
+        return JSONResponse(numbers, headers={"Cache-Control": "no-store"})
 
     return app

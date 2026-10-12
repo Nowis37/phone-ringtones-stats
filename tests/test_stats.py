@@ -115,3 +115,40 @@ def test_data_older_than_thirteen_months_is_deleted(store):
     store.db.execute("delete from meta")
     store.record("new", env, [("app_opened", now, {})], [], now=now)
     assert store.query("select id from devices") == [("new",)]
+
+
+def test_console_json_needs_its_own_token(store):
+    client = TestClient(create_app(store, admin_token="secret", console_token="reader"))
+    assert client.get("/v1/console.json").status_code == 401
+    assert client.get("/v1/console.json", headers={"Authorization": "Bearer secret"}).status_code == 401
+    r = client.get("/v1/console.json", headers={"Authorization": "Bearer reader"})
+    assert r.status_code == 200
+    assert r.headers["cache-control"] == "no-store"
+
+
+def test_console_json_refuses_everyone_without_a_configured_token(store):
+    client = TestClient(create_app(store, admin_token="secret", console_token=""))
+    assert client.get("/v1/console.json", headers={"Authorization": "Bearer "}).status_code == 401
+
+
+def test_console_json_counts_ads_purchases_and_sources(store):
+    client = TestClient(create_app(store, admin_token="secret", console_token="reader"))
+    device = str(uuid.uuid4())
+    client.post("/v1/events", json=batch(device,
+        {"name": "app_opened", "props": {}},
+        {"name": "ringtone_created", "props": {"source": "video"}},
+        {"name": "ringtone_created", "props": {"source": "sound"}},
+        {"name": "ringtone_created", "props": {"source": "video"}},
+        {"name": "ad_watched", "props": {}},
+        {"name": "purchase", "props": {"product": "lifetime"}}))
+    m = client.get("/v1/console.json", headers={"Authorization": "Bearer reader"}).json()
+    assert m["devices"] == 1 and m["active_1"] == 1 and m["created_total"] == 3
+    assert m["ads_total"] == 1 and m["ads_7"] == 1 and m["ads_devices_30"] == 1
+    assert m["purchases_total"] == 1 and m["purchasers"] == 1
+    assert m["by_source"] == [["video", 2], ["sound", 1]]
+    assert m["by_product"] == [["lifetime", 1]]
+    assert len(m["daily"]) == 90
+    today = m["daily"][-1]
+    assert (today["created"], today["ads"], today["purchases"], today["active"]) == (3, 1, 1, 1)
+    assert m["retention"]["1"] == [0, 0]
+    assert m["collected"] == {"screen_viewed": False, "crash_reported": False}

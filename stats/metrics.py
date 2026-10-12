@@ -4,6 +4,7 @@ Test devices (debug and TestFlight builds) are left out unless asked for: the
 phones that skew the numbers most are the ones used to build the app.
 """
 
+import json
 import time
 from collections import Counter
 
@@ -12,7 +13,8 @@ from .store import Store
 DAY = 86400
 
 
-def compute(store: Store, include_tests: bool = False, now: int | None = None) -> dict:
+def compute(store: Store, include_tests: bool = False, now: int | None = None, days: int = 30) -> dict:
+    """Everything the console shows. `days` is how far back the day-by-day series go."""
     now = now or int(time.time())
     test = "" if include_tests else "and d.is_test = 0"
     devices = store.query(f"select id, first_seen, last_seen from devices d where 1=1 {test}")
@@ -51,16 +53,37 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None) -
     def active(since: int) -> int:
         return len({d for d, at in opened if at >= since})
 
+    # Ads watched and purchases, read the same way as creations: test devices out
+    # unless asked for, so a day of building the app does not look like a launch.
+    ads = store.query(
+        f"select e.device, e.at from events e join devices d on d.id = e.device "
+        f"where e.name = 'ad_watched' {test}"
+    )
+    purchases = store.query(
+        f"select e.device, e.at, e.props from events e join devices d on d.id = e.device "
+        f"where e.name = 'purchase' {test}"
+    )
+
+    def bucket(rows: list[tuple], start: int, end: int) -> int:
+        return sum(1 for row in rows if start <= row[1] < end)
+
     daily = []
-    for back in range(29, -1, -1):
+    for back in range(max(1, days) - 1, -1, -1):
         start = (now // DAY - back) * DAY
         end = start + DAY
         daily.append({
             "day": start,
             "new": sum(1 for f in first.values() if start <= f < end),
             "active": len({d for d, at in opened if start <= at < end}),
-            "created": sum(1 for _, at, _ in created if start <= at < end),
+            "created": bucket(created, start, end),
+            "ads": bucket(ads, start, end),
+            "purchases": bucket(purchases, start, end),
         })
+
+    # Where a ringtone starts from: the closest thing the app has to "by creator",
+    # since nothing about a person or a file is ever sent.
+    by_source = Counter(json.loads(props).get("source", "?") for d, _, props in created if d in ids)
+    by_product = Counter(json.loads(props).get("product", "?") for d, _, props in purchases if d in ids)
 
     since30 = now - 30 * DAY
     features = store.query(
@@ -98,6 +121,14 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None) -
         "lang": top("lang"),
         "app": top("app"),
         "model": top("model"),
+        "ads_total": len(ads),
+        "ads_7": sum(1 for _, at in ads if at >= now - 7 * DAY),
+        "ads_devices_30": len({d for d, at in ads if at >= since30}),
+        "purchases_total": len(purchases),
+        "purchases_30": sum(1 for _, at, _ in purchases if at >= since30),
+        "purchasers": len({d for d, _, _ in purchases}),
+        "by_source": sorted(by_source.items(), key=lambda kv: -kv[1]),
+        "by_product": sorted(by_product.items(), key=lambda kv: -kv[1]),
         "dropped": store.query("select name, count from dropped order by count desc limit 20"),
         "tests_hidden": 0 if include_tests else store.query("select count(*) from devices where is_test = 1")[0][0],
     }

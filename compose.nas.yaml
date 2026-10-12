@@ -16,6 +16,9 @@ services:
     restart: unless-stopped
     environment:
       ADMIN_TOKEN: ${ADMIN_TOKEN:?set ADMIN_TOKEN in .env: the console password}
+      # Read by the shared console on api.getsaute.com (GET /v1/console.json).
+      # Empty: that route answers 401 to everybody. Generate: openssl rand -hex 32
+      CONSOLE_TOKEN: ${CONSOLE_TOKEN:-}
     volumes:
       - stats-data:/data
   # No port is published: the only way in is the tunnel, which does TLS.
