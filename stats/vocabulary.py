@@ -21,14 +21,14 @@ YES_NO = ("yes", "no")
 # `int` a whole number between 0 and 10 000. Anything else is dropped.
 EVENTS: dict[str, dict[str, Any]] = {
     # A sitting begins. What "who comes back" is computed from.
-    "app_opened": {"cold": YES_NO},
+    "app_opened": {"cold": YES_NO, "style": ("classic", "pop")},
     # The product's one moment of value.
     "ringtone_created": {"best_part": YES_NO, "enhance": YES_NO, "premium": YES_NO,
                          "speed": ("normal", "sped_up", "slowed"), "loop": YES_NO,
                          "source": ("video", "audio", "sound")},
     "ringtone_installed": {},
     "ad_watched": {},
-    "paywall_shown": {"reason": ("general", "sound", "bestPart", "speed", "loop", "color")},
+    "paywall_shown": {"reason": ("general", "sound", "bestPart", "speed", "loop", "color", "style")},
     "purchase": {"product": ("lifetime", "monthly")},
     "auto_best_part_opened": {"allowed": YES_NO},
     "auto_best_part_started": {},
@@ -43,6 +43,10 @@ EVENTS: dict[str, dict[str, Any]] = {
     # that can be heard before paying. Read against "purchase".
     "speed_sampled": {"speed": ("sped_up", "slowed")},
     "app_color_chosen": {"kind": ("auto", "free", "premium")},
+    # Classique or Pop (Premium, 1.2), chosen in Settings.
+    "app_style_chosen": {"style": ("classic", "pop")},
+    # A built-in sound starred or unstarred (1.2): which sounds people keep.
+    "sound_favorited": {"sound": ("ukulele", "good-mood", "menu", "hardstyle", "vibraphone", "bells", "rhodes", "crystals", "wah-wah", "baroque", "dawn", "chimes", "music-box", "pixel", "neon", "turkish-march", "fur-elise", "ode-to-joy", "little-night-music", "canon"), "on": YES_NO},
     "contact_assignment_started": {"installed": YES_NO},
     "contact_permission_granted": {},
     "contact_permission_denied": {},

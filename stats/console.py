@@ -21,6 +21,8 @@ LABELS = {
     "smart_audio_enhance_compared": "Améliorer le son : comparaison",
     "speed_sampled": "Vitesse : aperçu de 5 s écouté",
     "app_color_chosen": "Couleur de l'app choisie",
+    "app_style_chosen": "Style de l'app choisi (Classique / Pop)",
+    "sound_favorited": "Son intégré mis en favori (ou retiré)",
     "contact_assignment_started": "Contact : écran ouvert",
     "contact_permission_granted": "Contact : accès accepté",
     "contact_permission_denied": "Contact : accès refusé",
