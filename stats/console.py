@@ -29,6 +29,8 @@ LABELS = {
     "contact_selected": "Contact : choisi",
     "contact_install_tapped": "Contact : installation lancée",
     "contact_assignment_completed": "Contact : fiche ouverte",
+    "screen_viewed": "Écran vu",
+    "crash_reported": "Plantage (signalé au lancement suivant)",
 }
 
 STYLE = """
