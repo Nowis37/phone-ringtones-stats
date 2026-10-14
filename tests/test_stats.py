@@ -249,3 +249,14 @@ def test_series_count_each_event_in_its_own_bucket(store):
     assert sum(d["created"] for d in m["daily"]) == 2
     assert sum(h["created"] for h in m["hourly"]) == 1
     assert m["daily"][-1]["day"] == (now // DAY) * DAY
+
+
+def test_the_welcome_is_measured(client, store):
+    device = str(uuid.uuid4())
+    client.post("/v1/events", json=batch(device,
+        {"name": "onboarding_step", "props": {"step": "locks"}},
+        {"name": "onboarding_effect", "props": {"effect": "bass"}},
+        {"name": "paywall_shown", "props": {"reason": "onboarding"}}))
+    import json
+    rows = [json.loads(p) for (p,) in store.query("select props from events order by rowid")]
+    assert rows == [{"step": "locks"}, {"effect": "bass"}, {"reason": "onboarding"}]

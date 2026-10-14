@@ -32,6 +32,8 @@ LABELS = {
     "purchase_started": "Achat : lancé",
     "purchase_ended": "Achat : terminé",
     "paywall_dismissed": "Offre : quittée",
+    "onboarding_step": "Bienvenue : écran atteint",
+    "onboarding_effect": "Bienvenue : effet essayé",
     "contact_install_tapped": "Contact : installation lancée",
     "contact_assignment_completed": "Contact : fiche ouverte",
     "screen_viewed": "Écran vu",

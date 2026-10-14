@@ -42,7 +42,10 @@ EVENTS: dict[str, dict[str, Any]] = {
                          "sound": SOUNDS, "duration": int},
     "ringtone_installed": {},
     "ad_watched": {},
-    "paywall_shown": {"reason": ("general", "sound", "bestPart", "speed", "loop", "color", "style")},
+    "paywall_shown": {"reason": ("general", "sound", "bestPart", "speed", "loop", "color", "style", "onboarding")},
+    # The welcome of 1.3: the screen reached, and the effects tried on the demo sound.
+    "onboarding_step": {"step": ("promise", "result", "effects", "locks")},
+    "onboarding_effect": {"effect": ("sped_up", "loop", "bass", "enhance", "fade", "volume")},
     "purchase": {"product": PLANS, "trial": YES_NO},
     # The way to a purchase (1.3): a plan touched, the advantages unfolded, the
     # purchase asked of Apple and how it ended, how the offer was left.
