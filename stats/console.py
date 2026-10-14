@@ -47,6 +47,23 @@ svg text{fill:var(--sub);font-size:10px}a{color:var(--accent)}
 """
 
 
+# How ringtone_created details read in the console. An unknown one shows as sent.
+EFFECT_LABELS = {
+    "source": "Source", "best_part": "Meilleur passage", "enhance": "Son amélioré",
+    "speed": "Vitesse", "loop": "Boucle parfaite", "premium": "Créée en Premium",
+}
+VALUE_LABELS = {
+    "yes": "oui", "no": "non", "video": "vidéo", "audio": "audio", "sound": "son intégré",
+    "normal": "normale", "sped_up": "accélérée", "slowed": "ralentie",
+}
+
+
+def effect_rows(effects: dict) -> list[tuple]:
+    total = effects["creations"]
+    return [(EFFECT_LABELS.get(r["detail"], r["detail"]), VALUE_LABELS.get(r["value"], r["value"]),
+             r["count"], f"{round(100 * r['share'])} %") for r in effects["rows"]] if total else []
+
+
 def pct(pair: tuple[int, int]) -> str:
     back, total = pair
     return "—" if total == 0 else f"{round(100 * back / total)} %"
@@ -113,6 +130,9 @@ def render(m: dict, include_tests: bool) -> str:
 <div class="card"><h2>Sonneries par appareil</h2>{table(m["buckets"], ["Sonneries", "Appareils"])}</div>
 <div class="card"><h2>Fonctions, 30 jours</h2>{table(features, ["Événement", "Fois", "Appareils"])}</div>
 </section>
+<section class="card"><h2>Effets utilisés, 30 jours</h2>
+<p class="sub">Part des {m["effects"]["creations"]} sonneries créées ces 30 jours.</p>
+{table(effect_rows(m["effects"]), ["Réglage", "Valeur", "Sonneries", "Part"])}</section>
 <section class="card"><h2>Détails, 30 jours</h2>{table(details, ["Événement", "Valeur", "Fois"])}</section>
 <section class="cols">
 <div class="card"><h2>Versions d'iOS</h2>{table(m["os"], ["iOS", "Appareils"])}</div>

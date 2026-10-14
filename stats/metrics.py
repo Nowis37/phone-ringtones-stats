@@ -86,6 +86,18 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
     by_product = Counter(json.loads(props).get("product", "?") for d, _, props in purchases if d in ids)
 
     since30 = now - 30 * DAY
+    # What went into the ringtones of the last 30 days: every detail of
+    # ringtone_created, value by value, as a share of those ringtones. Generic on
+    # purpose: a detail the app starts sending (fades, volume…) shows up here as
+    # soon as the vocabulary admits it, with no change to this file.
+    recent = [json.loads(props) for d, at, props in created if at >= since30 and d in ids]
+    pairs = Counter((key, str(value)) for props in recent for key, value in props.items())
+    effects = {
+        "creations": len(recent),
+        "rows": [{"detail": key, "value": value, "count": count,
+                  "share": round(count / len(recent), 4)}
+                 for (key, value), count in sorted(pairs.items(), key=lambda kv: (kv[0][0], -kv[1]))],
+    }
     features = store.query(
         f"select e.name, count(*), count(distinct e.device) from events e join devices d on d.id = e.device "
         f"where e.at >= ? {test} group by e.name order by e.name", (since30,))
@@ -128,6 +140,7 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         "purchases_30": sum(1 for _, at, _ in purchases if at >= since30),
         "purchasers": len({d for d, _, _ in purchases}),
         "by_source": sorted(by_source.items(), key=lambda kv: -kv[1]),
+        "effects": effects,
         "by_product": sorted(by_product.items(), key=lambda kv: -kv[1]),
         "dropped": store.query("select name, count from dropped order by count desc limit 20"),
         "tests_hidden": 0 if include_tests else store.query("select count(*) from devices where is_test = 1")[0][0],

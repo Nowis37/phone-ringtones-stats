@@ -152,3 +152,29 @@ def test_console_json_counts_ads_purchases_and_sources(store):
     assert (today["created"], today["ads"], today["purchases"], today["active"]) == (3, 1, 1, 1)
     assert m["retention"]["1"] == [0, 0]
     assert m["collected"] == {"screen_viewed": False, "crash_reported": False}
+
+
+def test_effects_are_shares_of_the_ringtones_made_in_30_days(store):
+    now = int(time.time())
+    env = {"app": None, "os": None, "model": None, "lang": None, "country": None, "test": 0}
+    store.record("a", env, [
+        ("ringtone_created", now, {"source": "video", "speed": "sped_up", "loop": "yes"}),
+        ("ringtone_created", now, {"source": "video", "speed": "normal", "loop": "no"}),
+        ("ringtone_created", now, {"source": "sound", "speed": "normal", "loop": "no"}),
+        ("ringtone_created", now - 40 * DAY, {"source": "audio", "speed": "slowed", "loop": "yes"}),
+    ], [], now=now)
+    store.record("t", {**env, "test": 1}, [("ringtone_created", now, {"source": "audio"})] * 5, [], now=now)
+    effects = compute(store, now=now)["effects"]
+    assert effects["creations"] == 3
+    rows = {(r["detail"], r["value"]): (r["count"], r["share"]) for r in effects["rows"]}
+    assert rows[("source", "video")] == (2, 0.6667)
+    assert rows[("speed", "sped_up")] == (1, 0.3333)
+    assert ("source", "audio") not in rows  # older than 30 days, or from a test phone
+
+
+def test_console_shows_the_effects_table(client, store):
+    device = str(uuid.uuid4())
+    client.post("/v1/events", json=batch(device,
+        {"name": "ringtone_created", "props": {"source": "video", "speed": "sped_up"}}))
+    page = client.get("/console", auth=("x", "secret")).text
+    assert "Effets utilisés, 30 jours" in page and "accélérée" in page and "100 %" in page
