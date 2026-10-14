@@ -64,21 +64,32 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         f"where e.name = 'purchase' {test}"
     )
 
-    def bucket(rows: list[tuple], start: int, end: int) -> int:
-        return sum(1 for row in rows if start <= row[1] < end)
+    def series(width: int, count: int) -> list[dict]:
+        """`count` buckets of `width` seconds, oldest first, the last one the
+        current. One pass over each list: the console asks for 13 months of
+        days and 48 hours, and a scan per bucket would be thousands of scans."""
+        first_bucket = now // width - (count - 1)
 
-    daily = []
-    for back in range(max(1, days) - 1, -1, -1):
-        start = (now // DAY - back) * DAY
-        end = start + DAY
-        daily.append({
-            "day": start,
-            "new": sum(1 for f in first.values() if start <= f < end),
-            "active": len({d for d, at in opened if start <= at < end}),
-            "created": bucket(created, start, end),
-            "ads": bucket(ads, start, end),
-            "purchases": bucket(purchases, start, end),
-        })
+        def slot(at: int) -> int | None:
+            k = at // width - first_bucket
+            return k if 0 <= k < count else None
+
+        rows = [{"new": 0, "active": set(), "created": 0, "ads": 0, "purchases": 0} for _ in range(count)]
+        for f in first.values():
+            if (k := slot(f)) is not None:
+                rows[k]["new"] += 1
+        for d, at in opened:
+            if (k := slot(at)) is not None:
+                rows[k]["active"].add(d)
+        for key, events in (("created", created), ("ads", ads), ("purchases", purchases)):
+            for row in events:
+                if (k := slot(row[1])) is not None:
+                    rows[k][key] += 1
+        return [{**r, "active": len(r["active"]), "at": (first_bucket + k) * width} for k, r in enumerate(rows)]
+
+    daily = [{**r, "day": r.pop("at")} for r in series(DAY, max(1, days))]
+    # For the console's « Heure » zoom: the last 48 hours, the current one last.
+    hourly = series(3600, 48)
 
     # Where a ringtone starts from: the closest thing the app has to "by creator",
     # since nothing about a person or a file is ever sent.
@@ -126,6 +137,7 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         "retention": retention,
         "came_back": came_back,
         "daily": daily,
+        "hourly": hourly,
         "features": features,
         "details": details,
         "os": top("substr(os, 1, instr(os || '.', '.') - 1)"),

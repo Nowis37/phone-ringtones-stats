@@ -158,8 +158,12 @@ def test_console_json_counts_ads_purchases_and_sources(store):
     assert m["purchases_total"] == 1 and m["purchasers"] == 1
     assert m["by_source"] == [["video", 2], ["sound", 1]]
     assert m["by_product"] == [["lifetime", 1]]
-    assert len(m["daily"]) == 90
+    assert len(m["daily"]) == 395  # 13 months: everything the store keeps
     today = m["daily"][-1]
+    assert len(m["hourly"]) == 48
+    hour = m["hourly"][-1]
+    assert (hour["created"], hour["ads"], hour["purchases"], hour["active"], hour["new"]) == (3, 1, 1, 1, 1)
+    assert m["hourly"][-2]["created"] == 0 and hour["at"] - m["hourly"][-2]["at"] == 3600
     assert (today["created"], today["ads"], today["purchases"], today["active"]) == (3, 1, 1, 1)
     assert m["retention"]["1"] == [0, 0]
     assert m["collected"] == {"screen_viewed": True, "crash_reported": True}
@@ -231,3 +235,17 @@ def test_the_way_to_a_purchase_is_kept(client, store):
         ("purchase", {"product": "yearly", "trial": "yes"}),
         ("purchase", {}),
     ]
+
+
+def test_series_count_each_event_in_its_own_bucket(store):
+    """Days and hours are counted in one pass: an event lands in the bucket of
+    its own time, and one older than the window is left out."""
+    now = int(time.time())
+    env = {"app": None, "os": None, "model": None, "lang": None, "country": None, "test": 0}
+    store.record("a", env, [("ringtone_created", now - 3 * DAY, {}), ("ringtone_created", now - 2 * 3600, {}),
+                            ("ringtone_created", now - 400 * DAY, {})], [], now=now - 3 * DAY)
+    m = compute(store, now=now, days=10)
+    assert [d["created"] for d in m["daily"]][-4] == 1
+    assert sum(d["created"] for d in m["daily"]) == 2
+    assert sum(h["created"] for h in m["hourly"]) == 1
+    assert m["daily"][-1]["day"] == (now // DAY) * DAY

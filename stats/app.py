@@ -19,7 +19,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from . import console, metrics
-from .store import Store
+from .store import RETENTION_SECONDS, Store
 from .vocabulary import EVENTS, MAX_EVENTS_PER_BATCH, clean
 
 UUID = re.compile(r"^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$")
@@ -31,6 +31,7 @@ SHAPES = {
     "lang": re.compile(r"^[a-z]{2}$"),
 }
 MAX_CLOCK_SKEW = 7 * 86400
+RETENTION_DAYS = RETENTION_SECONDS // 86400
 # Events the shared console has a place for. Until one is declared in vocabulary.py
 # the console says "pas encore collecté" rather than drawing a zero. Both are
 # declared since the app's 1.3: they count from the first device running it.
@@ -105,7 +106,9 @@ def create_app(store: Store | None = None, admin_token: str | None = None,
         given = authorization.removeprefix("Bearer ").strip()
         if not reader or not secrets.compare_digest(given.encode(), reader.encode()):
             return JSONResponse({"error": "unauthorized"}, status_code=401)
-        numbers = metrics.compute(store, include_tests=bool(tests), days=90)
+        # 13 months of days: everything the store keeps, so the console can
+        # zoom out to months and years.
+        numbers = metrics.compute(store, include_tests=bool(tests), days=RETENTION_DAYS)
         numbers["retention"] = {str(n): list(pair) for n, pair in numbers["retention"].items()}
         numbers["collected"] = {name: name in EVENTS for name in AWAITED}
         numbers["vocabulary"] = sorted(EVENTS)
