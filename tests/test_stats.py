@@ -48,6 +48,17 @@ def test_nothing_typed_or_picked_can_be_stored(client, store):
     assert store.query("select country from devices") == [(None,)]
 
 
+def test_screens_and_crashes_keep_only_a_known_screen(client, store):
+    device = str(uuid.uuid4())
+    client.post("/v1/events", json=batch(device,
+        {"name": "screen_viewed", "props": {"screen": "editor", "seconds": 12}},
+        {"name": "screen_viewed", "props": {"screen": "Ma sonnerie"}},
+        {"name": "crash_reported", "props": {"screen": "paywall", "stack": "0x1 main"}}))
+    assert store.query("select name, props from events order by id") == [
+        ("screen_viewed", '{"screen": "editor"}'), ("screen_viewed", "{}"),
+        ("crash_reported", '{"screen": "paywall"}')]
+
+
 def test_malformed_envelope_values_are_nulled_not_stored(client, store):
     device = str(uuid.uuid4())
     client.post("/v1/events", json=batch(device, app="<script>", os="iOS seventeen", model="Simon's iPhone"))
@@ -151,7 +162,7 @@ def test_console_json_counts_ads_purchases_and_sources(store):
     today = m["daily"][-1]
     assert (today["created"], today["ads"], today["purchases"], today["active"]) == (3, 1, 1, 1)
     assert m["retention"]["1"] == [0, 0]
-    assert m["collected"] == {"screen_viewed": False, "crash_reported": False}
+    assert m["collected"] == {"screen_viewed": True, "crash_reported": True}
 
 
 def test_effects_are_shares_of_the_ringtones_made_in_30_days(store):

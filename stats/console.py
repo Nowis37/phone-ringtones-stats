@@ -28,6 +28,8 @@ LABELS = {
     "contact_permission_denied": "Contact : accès refusé",
     "contact_selected": "Contact : choisi",
     "contact_assignment_completed": "Contact : fiche ouverte",
+    "screen_viewed": "Écran vu",
+    "crash_reported": "Plantage (signalé au lancement suivant)",
 }
 
 STYLE = """

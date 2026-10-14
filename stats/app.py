@@ -31,9 +31,9 @@ SHAPES = {
     "lang": re.compile(r"^[a-z]{2}$"),
 }
 MAX_CLOCK_SKEW = 7 * 86400
-# Events the shared console has a place for but the app does not send yet. Each
-# needs a build of the app before it means anything; until then the console says
-# "pas encore collecté" rather than drawing a zero.
+# Events the shared console has a place for. Until one is declared in vocabulary.py
+# the console says "pas encore collecté" rather than drawing a zero. Both are
+# declared since the app's 1.3: they count from the first device running it.
 AWAITED = ("screen_viewed", "crash_reported")
 
 

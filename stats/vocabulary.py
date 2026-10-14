@@ -16,6 +16,9 @@ The same idea as Sauté's usage table, for the same three reasons:
 from typing import Any
 
 YES_NO = ("yes", "no")
+# The app's screens (Analytics.Screen). The console reads these values: never rename one.
+SCREENS = ("onboarding", "home", "library", "settings", "sounds", "editor", "best_part", "ad_gate",
+           "limit", "ready", "install", "paywall", "contact", "privacy")
 
 # Each event and the details it may carry. A tuple means "one of these strings",
 # `int` a whole number between 0 and 10 000. Anything else is dropped.
@@ -53,6 +56,12 @@ EVENTS: dict[str, dict[str, Any]] = {
     "contact_selected": {},
     # The contact's card was opened. iOS never says whether the ringtone was then chosen.
     "contact_assignment_completed": {},
+    # A screen came into view (1.3): which screens people reach. No time spent.
+    "screen_viewed": {"screen": SCREENS},
+    # The last sitting ended in front without going to the background: a crash, a
+    # freeze iOS killed, or memory running out. Sent on the next launch, with the
+    # screen it happened on. No stack, no message.
+    "crash_reported": {"screen": SCREENS},
 }
 
 MAX_EVENTS_PER_BATCH = 200
