@@ -16,6 +16,8 @@ The same idea as Sauté's usage table, for the same three reasons:
 from typing import Any
 
 YES_NO = ("yes", "no")
+# Premium plans: weekly, yearly and lifetime since 1.3; monthly sold until 1.2.3.
+PLANS = ("weekly", "yearly", "lifetime", "monthly")
 # The app's screens (Analytics.Screen). The console reads these values: never rename one.
 SCREENS = ("onboarding", "home", "library", "settings", "sounds", "editor", "best_part", "ad_gate",
            "limit", "ready", "install", "paywall", "contact", "privacy")
@@ -41,7 +43,15 @@ EVENTS: dict[str, dict[str, Any]] = {
     "ringtone_installed": {},
     "ad_watched": {},
     "paywall_shown": {"reason": ("general", "sound", "bestPart", "speed", "loop", "color", "style")},
-    "purchase": {"product": ("lifetime", "monthly")},
+    "purchase": {"product": PLANS, "trial": YES_NO},
+    # The way to a purchase (1.3): a plan touched, the advantages unfolded, the
+    # purchase asked of Apple and how it ended, how the offer was left.
+    "paywall_plan_selected": {"plan": PLANS},
+    "paywall_expanded": {},
+    "purchase_started": {"plan": PLANS, "trial": YES_NO},
+    "purchase_ended": {"plan": PLANS, "result": ("success", "cancelled", "pending", "failed", "unverified",
+                                                  "unavailable")},
+    "paywall_dismissed": {"how": ("close", "free", "purchased")},
     "auto_best_part_opened": {"allowed": YES_NO},
     "auto_best_part_started": {},
     "auto_best_part_completed": {"result": ("found_1", "found_2", "found_3", "too_short", "silent",

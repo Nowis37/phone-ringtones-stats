@@ -210,3 +210,24 @@ def test_a_number_out_of_range_or_not_a_number_is_dropped(client, store):
         "volume": "-5", "duration": "1e3", "fade_in": "123456", "sound": "My Song.mp3"}}))
     (props,) = store.query("select props from events where name = 'ringtone_created'")[0]
     assert props == "{}"
+
+
+def test_the_way_to_a_purchase_is_kept(client, store):
+    device = str(uuid.uuid4())
+    client.post("/v1/events", json=batch(device,
+        {"name": "paywall_plan_selected", "props": {"plan": "weekly"}},
+        {"name": "purchase_started", "props": {"plan": "yearly", "trial": "yes"}},
+        {"name": "purchase_ended", "props": {"plan": "yearly", "result": "cancelled"}},
+        {"name": "paywall_dismissed", "props": {"how": "free"}},
+        {"name": "purchase", "props": {"product": "yearly", "trial": "yes"}},
+        {"name": "purchase", "props": {"product": "daily"}}))
+    rows = store.query("select name, props from events order by rowid")
+    import json
+    assert [(n, json.loads(p)) for n, p in rows] == [
+        ("paywall_plan_selected", {"plan": "weekly"}),
+        ("purchase_started", {"plan": "yearly", "trial": "yes"}),
+        ("purchase_ended", {"plan": "yearly", "result": "cancelled"}),
+        ("paywall_dismissed", {"how": "free"}),
+        ("purchase", {"product": "yearly", "trial": "yes"}),
+        ("purchase", {}),
+    ]
