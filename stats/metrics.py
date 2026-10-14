@@ -109,6 +109,29 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
                   "share": round(count / len(recent), 4)}
                  for (key, value), count in sorted(pairs.items(), key=lambda kv: (kv[0][0], -kv[1]))],
     }
+    # Each sound: listens ("streams", 3 s or more), the devices that listened,
+    # stars, and the ringtones made from it. Hidden in the app for now (Simon,
+    # 14 Oct 2026); this is where we see what to keep and what to post.
+    sound_events = store.query(
+        f"select e.device, e.name, e.at, e.props from events e join devices d on d.id = e.device "
+        f"where e.name in ('sound_played', 'sound_favorited', 'ringtone_created') {test}")
+    per_sound: dict[str, dict] = {}
+    for device, name, at, props in sound_events:
+        p = json.loads(props)
+        sound = p.get("sound")
+        if not sound:
+            continue
+        row = per_sound.setdefault(sound, {"plays": 0, "plays_30": 0, "listeners": set(), "stars": 0, "created": 0})
+        if name == "sound_played":
+            row["plays"] += 1
+            row["plays_30"] += at >= since30
+            row["listeners"].add(device)
+        elif name == "sound_favorited":
+            row["stars"] += 1 if p.get("on") == "yes" else -1
+        else:
+            row["created"] += 1
+    sounds = sorted(([s, r["plays"], r["plays_30"], len(r["listeners"]), max(0, r["stars"]), r["created"]]
+                     for s, r in per_sound.items()), key=lambda r: (-r[1], -r[5], r[0]))
     features = store.query(
         f"select e.name, count(*), count(distinct e.device) from events e join devices d on d.id = e.device "
         f"where e.at >= ? {test} group by e.name order by e.name", (since30,))
@@ -153,6 +176,7 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         "purchasers": len({d for d, _, _ in purchases}),
         "by_source": sorted(by_source.items(), key=lambda kv: -kv[1]),
         "effects": effects,
+        "sounds": sounds,
         "by_product": sorted(by_product.items(), key=lambda kv: -kv[1]),
         "dropped": store.query("select name, count from dropped order by count desc limit 20"),
         "tests_hidden": 0 if include_tests else store.query("select count(*) from devices where is_test = 1")[0][0],

@@ -23,6 +23,7 @@ LABELS = {
     "app_color_chosen": "Couleur de l'app choisie",
     "app_style_chosen": "Style de l'app choisi (Classique / Pop)",
     "sound_favorited": "Son intégré mis en favori (ou retiré)",
+    "sound_played": "Son écouté (3 s ou plus)",
     "contact_assignment_started": "Contact : écran ouvert",
     "contact_permission_granted": "Contact : accès accepté",
     "contact_permission_denied": "Contact : accès refusé",
@@ -147,6 +148,9 @@ def render(m: dict, include_tests: bool) -> str:
 <section class="card"><h2>Effets utilisés, 30 jours</h2>
 <p class="sub">Part des {m["effects"]["creations"]} sonneries créées ces 30 jours.</p>
 {table(effect_rows(m["effects"]), ["Réglage", "Valeur", "Sonneries", "Part"])}</section>
+<section class="card"><h2>Sons : écoutes</h2>
+<p class="sub">Une écoute = 3 s ou plus (ou le son entier). Cachées dans l'app pour l'instant.</p>
+{table(m["sounds"], ["Son", "Écoutes", "Écoutes 30 j", "Appareils", "Favoris", "Sonneries créées"])}</section>
 <section class="card"><h2>Détails, 30 jours</h2>{table(details, ["Événement", "Valeur", "Fois"])}</section>
 <section class="cols">
 <div class="card"><h2>Versions d'iOS</h2>{table(m["os"], ["iOS", "Appareils"])}</div>

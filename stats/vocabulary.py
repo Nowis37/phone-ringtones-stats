@@ -74,6 +74,9 @@ EVENTS: dict[str, dict[str, Any]] = {
     "app_style_chosen": {"style": ("classic", "pop")},
     # A built-in sound starred or unstarred (1.2): which sounds people keep.
     "sound_favorited": {"sound": SOUNDS, "on": YES_NO},
+    # 1.3: a sound listened to for 3 s or more (or to its end), like a stream.
+    # Hidden from people for now; the console counts them per sound.
+    "sound_played": {"sound": SOUNDS, "from": ("home", "gallery")},
     "contact_assignment_started": {"installed": YES_NO},
     "contact_permission_granted": {},
     "contact_permission_denied": {},

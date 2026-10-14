@@ -260,3 +260,21 @@ def test_the_welcome_is_measured(client, store):
     import json
     rows = [json.loads(p) for (p,) in store.query("select props from events order by rowid")]
     assert rows == [{"step": "locks"}, {"effect": "bass"}, {"reason": "onboarding"}]
+
+
+
+def test_sound_plays_are_counted_per_sound(client, store):
+    """A listen of 3 s or more counts per sound, next to its stars and the
+    ringtones made from it; a name the server does not know never gets in."""
+    a, b = str(uuid.uuid4()), str(uuid.uuid4())
+    client.post("/v1/events", json=batch(a,
+        {"name": "sound_played", "props": {"sound": "ukulele", "from": "home"}},
+        {"name": "sound_played", "props": {"sound": "ukulele", "from": "gallery"}},
+        {"name": "sound_played", "props": {"sound": "Mon son.mp3", "from": "home"}},
+        {"name": "sound_favorited", "props": {"sound": "ukulele", "on": "yes"}},
+        {"name": "ringtone_created", "props": {"source": "sound", "sound": "ukulele"}}))
+    client.post("/v1/events", json=batch(b, {"name": "sound_played", "props": {"sound": "menu", "from": "home"}}))
+    assert "Mon son" not in " ".join(p for (p,) in store.query("select props from events"))
+    sounds = compute(store)["sounds"]
+    assert sounds[0] == ["ukulele", 2, 2, 1, 1, 1]
+    assert sounds[1] == ["menu", 1, 1, 1, 0, 0]
