@@ -63,7 +63,7 @@ EFFECT_LABELS = {
     "speed": "Vitesse", "loop": "Boucle parfaite", "premium": "Créée en Premium",
     "fade_in": "Fondu de début (s)", "fade_out": "Fondu de fin (s)", "volume": "Volume (%)",
     "bass": "Bass boost", "optimized": "Niveau optimisé", "sound": "Son intégré",
-    "duration": "Durée (s)",
+    "duration": "Durée (s)", "quick": "Son en 2 touches (sans l’éditeur)",
 }
 VALUE_LABELS = {
     "yes": "oui", "no": "non", "video": "vidéo", "audio": "audio", "sound": "son intégré",

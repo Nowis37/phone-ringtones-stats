@@ -39,7 +39,9 @@ EVENTS: dict[str, dict[str, Any]] = {
                          "source": ("video", "audio", "sound"),
                          "fade_in": int, "fade_out": int, "volume": int,
                          "bass": ("off", "light", "strong"), "optimized": YES_NO,
-                         "sound": SOUNDS, "duration": int},
+                         "sound": SOUNDS, "duration": int,
+                         # 1.3: a sound set straight from its bell, without the editor.
+                         "quick": YES_NO},
     "ringtone_installed": {},
     "ad_watched": {},
     "paywall_shown": {"reason": ("general", "sound", "bestPart", "speed", "loop", "color", "style", "onboarding")},
