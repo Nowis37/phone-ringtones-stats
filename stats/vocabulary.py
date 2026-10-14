@@ -19,6 +19,10 @@ YES_NO = ("yes", "no")
 # The app's screens (Analytics.Screen). The console reads these values: never rename one.
 SCREENS = ("onboarding", "home", "library", "settings", "sounds", "editor", "best_part", "ad_gate",
            "limit", "ready", "install", "paywall", "contact", "privacy")
+# The app's built-in sounds (BuiltInSound). Never rename one: the console reads them.
+SOUNDS = ("ukulele", "good-mood", "menu", "hardstyle", "vibraphone", "bells", "rhodes", "crystals",
+          "wah-wah", "baroque", "dawn", "chimes", "music-box", "pixel", "neon", "turkish-march",
+          "fur-elise", "ode-to-joy", "little-night-music", "canon")
 
 # Each event and the details it may carry. A tuple means "one of these strings",
 # `int` a whole number between 0 and 10 000. Anything else is dropped.
@@ -26,9 +30,14 @@ EVENTS: dict[str, dict[str, Any]] = {
     # A sitting begins. What "who comes back" is computed from.
     "app_opened": {"cold": YES_NO, "style": ("classic", "pop")},
     # The product's one moment of value.
+    # Every setting since 1.2.3: fades in whole seconds (0 = none, 0 under the
+    # loop), volume in %, bass, levelling, the built-in sound, length in seconds.
     "ringtone_created": {"best_part": YES_NO, "enhance": YES_NO, "premium": YES_NO,
                          "speed": ("normal", "sped_up", "slowed"), "loop": YES_NO,
-                         "source": ("video", "audio", "sound")},
+                         "source": ("video", "audio", "sound"),
+                         "fade_in": int, "fade_out": int, "volume": int,
+                         "bass": ("off", "light", "strong"), "optimized": YES_NO,
+                         "sound": SOUNDS, "duration": int},
     "ringtone_installed": {},
     "ad_watched": {},
     "paywall_shown": {"reason": ("general", "sound", "bestPart", "speed", "loop", "color", "style")},
@@ -49,7 +58,7 @@ EVENTS: dict[str, dict[str, Any]] = {
     # Classique or Pop (Premium, 1.2), chosen in Settings.
     "app_style_chosen": {"style": ("classic", "pop")},
     # A built-in sound starred or unstarred (1.2): which sounds people keep.
-    "sound_favorited": {"sound": ("ukulele", "good-mood", "menu", "hardstyle", "vibraphone", "bells", "rhodes", "crystals", "wah-wah", "baroque", "dawn", "chimes", "music-box", "pixel", "neon", "turkish-march", "fur-elise", "ode-to-joy", "little-night-music", "canon"), "on": YES_NO},
+    "sound_favorited": {"sound": SOUNDS, "on": YES_NO},
     "contact_assignment_started": {"installed": YES_NO},
     "contact_permission_granted": {},
     "contact_permission_denied": {},
@@ -80,6 +89,9 @@ def clean(name: str, props: object) -> dict[str, Any] | None:
     kept: dict[str, Any] = {}
     for key, rule in allowed.items():
         value = props.get(key)
+        # The app's queue on disk holds text: a whole number may come as "3".
+        if rule is int and isinstance(value, str) and value.isdigit() and len(value) <= 5:
+            value = int(value)
         if isinstance(rule, tuple) and isinstance(value, str) and value in rule or rule is int and isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 10_000:
             kept[key] = value
     return kept

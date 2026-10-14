@@ -189,3 +189,24 @@ def test_console_shows_the_effects_table(client, store):
         {"name": "ringtone_created", "props": {"source": "video", "speed": "sped_up"}}))
     page = client.get("/console", auth=("x", "secret")).text
     assert "Effets utilisés, 30 jours" in page and "accélérée" in page and "100 %" in page
+
+
+def test_every_setting_of_a_ringtone_is_kept_numbers_as_numbers(client, store):
+    device = str(uuid.uuid4())
+    client.post("/v1/events", json=batch(device, {"name": "ringtone_created", "props": {
+        "fade_in": "0", "fade_out": "3", "volume": "150", "bass": "light", "optimized": "yes",
+        "sound": "ukulele", "duration": "28", "source": "sound",
+        "volume_note": "loud", "fade_out_extra": "99999999"}}))
+    (props,) = store.query("select props from events where name = 'ringtone_created'")[0]
+    import json
+    assert json.loads(props) == {"fade_in": 0, "fade_out": 3, "volume": 150, "bass": "light",
+                                 "optimized": "yes", "sound": "ukulele", "duration": 28,
+                                 "source": "sound"}
+
+
+def test_a_number_out_of_range_or_not_a_number_is_dropped(client, store):
+    device = str(uuid.uuid4())
+    client.post("/v1/events", json=batch(device, {"name": "ringtone_created", "props": {
+        "volume": "-5", "duration": "1e3", "fade_in": "123456", "sound": "My Song.mp3"}}))
+    (props,) = store.query("select props from events where name = 'ringtone_created'")[0]
+    assert props == "{}"
