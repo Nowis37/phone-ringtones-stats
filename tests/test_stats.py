@@ -9,6 +9,14 @@ from stats.metrics import DAY, compute
 from stats.store import RETENTION_SECONDS, Store
 
 
+@pytest.fixture(autouse=True)
+def offline_catalogue(monkeypatch):
+    """Tests never fetch the online catalogue: they say which ids it holds."""
+    from stats.vocabulary import SOUND, KnownSounds
+    monkeypatch.setattr(KnownSounds, "URL", "")
+    SOUND.catalogue = frozenset()
+
+
 @pytest.fixture
 def store(tmp_path):
     return Store(tmp_path / "stats.sqlite3")
@@ -278,3 +286,17 @@ def test_sound_plays_are_counted_per_sound(client, store):
     sounds = compute(store)["sounds"]
     assert sounds[0] == ["ukulele", 2, 2, 1, 1, 1]
     assert sounds[1] == ["menu", 1, 1, 1, 0, 0]
+
+
+def test_catalogue_sounds_are_known_by_id_only(client, store):
+    """A sound of the online catalogue is accepted by its id, as listed by the
+    catalogue; anything else in its place is dropped."""
+    from stats.vocabulary import SOUND
+    SOUND.load(["monkeys-spinning-monkeys", "Not A Slug.mp3"])
+    device = str(uuid.uuid4())
+    client.post("/v1/events", json=batch(device,
+        {"name": "sound_played", "props": {"sound": "monkeys-spinning-monkeys", "from": "home"}},
+        {"name": "sound_played", "props": {"sound": "Not A Slug.mp3", "from": "home"}},
+        {"name": "ringtone_created", "props": {"source": "sound", "sound": "unknown-sound"}}))
+    assert store.query("select props from events order by id") == [
+        ('{"from": "home", "sound": "monkeys-spinning-monkeys"}',), ('{"from": "home"}',), ('{"source": "sound"}',)]

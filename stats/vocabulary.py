@@ -13,6 +13,11 @@ The same idea as Sauté's usage table, for the same three reasons:
     deliberate change on both sides.
 """
 
+import json
+import os
+import re
+import time
+import urllib.request
 from typing import Any
 
 YES_NO = ("yes", "no")
@@ -25,6 +30,46 @@ SCREENS = ("onboarding", "home", "library", "settings", "sounds", "editor", "bes
 SOUNDS = ("ukulele", "good-mood", "menu", "hardstyle", "vibraphone", "bells", "rhodes", "crystals",
           "wah-wah", "baroque", "dawn", "chimes", "music-box", "pixel", "neon", "turkish-march",
           "fur-elise", "ode-to-joy", "little-night-music", "canon")
+
+
+class KnownSounds:
+    """A sound's id: one of the app's own, or one of the online catalogue (the
+    sound of the day, 1.3), whose list this server reads from where the app reads
+    it, at most once an hour. Still a closed list: an id the catalogue does not
+    name is dropped, and the catalogue's own ids are checked to be plain slugs."""
+
+    URL = os.environ.get("CATALOGUE_URL", "https://sons.phoneringtones.fr/catalogue.json")
+    SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
+
+    def __init__(self, builtin: tuple[str, ...]):
+        self.builtin = frozenset(builtin)
+        self.catalogue: frozenset[str] = frozenset()
+        self.fetched = 0.0
+
+    def load(self, ids) -> None:
+        self.catalogue = frozenset(i for i in ids if isinstance(i, str) and self.SLUG.match(i))
+        self.fetched = time.time()
+
+    def _refresh(self) -> None:
+        if not self.URL or time.time() - self.fetched < 3600:
+            return
+        self.fetched = time.time()  # a failure waits an hour too: never a fetch per event
+        try:
+            # Named: Cloudflare turns away Python's default user agent (403).
+            request = urllib.request.Request(self.URL, headers={"User-Agent": "phone-ringtones-stats"})
+            with urllib.request.urlopen(request, timeout=3) as r:
+                self.load(s.get("id") for s in json.load(r).get("sounds", []))
+        except Exception:
+            pass
+
+    def __contains__(self, value: object) -> bool:
+        if value in self.builtin:
+            return True
+        self._refresh()
+        return value in self.catalogue
+
+
+SOUND = KnownSounds(SOUNDS)
 
 # Each event and the details it may carry. A tuple means "one of these strings",
 # `int` a whole number between 0 and 10 000. Anything else is dropped.
@@ -39,7 +84,7 @@ EVENTS: dict[str, dict[str, Any]] = {
                          "source": ("video", "audio", "sound"),
                          "fade_in": int, "fade_out": int, "volume": int,
                          "bass": ("off", "light", "strong"), "optimized": YES_NO,
-                         "sound": SOUNDS, "duration": int,
+                         "sound": SOUND, "duration": int,
                          # 1.3: a sound set straight from its bell, without the editor.
                          "quick": YES_NO},
     "ringtone_installed": {},
@@ -73,10 +118,10 @@ EVENTS: dict[str, dict[str, Any]] = {
     # Classique or Pop (Premium, 1.2), chosen in Settings.
     "app_style_chosen": {"style": ("classic", "pop")},
     # A built-in sound starred or unstarred (1.2): which sounds people keep.
-    "sound_favorited": {"sound": SOUNDS, "on": YES_NO},
+    "sound_favorited": {"sound": SOUND, "on": YES_NO},
     # 1.3: a sound listened to for 3 s or more (or to its end), like a stream.
     # Hidden from people for now; the console counts them per sound.
-    "sound_played": {"sound": SOUNDS, "from": ("home", "gallery")},
+    "sound_played": {"sound": SOUND, "from": ("home", "gallery")},
     "contact_assignment_started": {"installed": YES_NO},
     "contact_permission_granted": {},
     "contact_permission_denied": {},
@@ -110,6 +155,6 @@ def clean(name: str, props: object) -> dict[str, Any] | None:
         # The app's queue on disk holds text: a whole number may come as "3".
         if rule is int and isinstance(value, str) and value.isdigit() and len(value) <= 5:
             value = int(value)
-        if isinstance(rule, tuple) and isinstance(value, str) and value in rule or rule is int and isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 10_000:
+        if isinstance(rule, (tuple, KnownSounds)) and isinstance(value, str) and value in rule or rule is int and isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 10_000:
             kept[key] = value
     return kept
