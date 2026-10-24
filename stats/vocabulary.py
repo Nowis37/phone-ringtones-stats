@@ -121,7 +121,7 @@ EVENTS: dict[str, dict[str, Any]] = {
     "sound_favorited": {"sound": SOUND, "on": YES_NO},
     # 1.3: a sound listened to for 3 s or more (or to its end), like a stream.
     # Hidden from people for now; the console counts them per sound.
-    "sound_played": {"sound": SOUND, "from": ("home", "gallery")},
+    "sound_played": {"sound": SOUND, "from": ("home", "gallery", "popular")},
     "contact_assignment_started": {"installed": YES_NO},
     "contact_permission_granted": {},
     "contact_permission_denied": {},
@@ -137,6 +137,19 @@ EVENTS: dict[str, dict[str, Any]] = {
     # freeze iOS killed, or memory running out. Sent on the next launch, with the
     # screen it happened on. No stack, no message.
     "crash_reported": {"screen": SCREENS},
+    # 1.4: a creation blocked because no ad came (Google had none, or no
+    # network), or the ad closed before its end. What an eCPM floor would cost.
+    "ad_unavailable": {"why": ("no_fill", "offline", "interrupted")},
+    # 1.4: the band under the doors opened the app's TikTok account.
+    "tiktok_opened": {"from": ("doors",)},
+    # 1.4, the weekly notification: the home card's answer, iOS's answer, a
+    # notification touched, the switch in Settings.
+    "notification_offered": {"answer": YES_NO},
+    "notification_permission": {"granted": YES_NO},
+    "notification_opened": {},
+    "notification_switched": {"on": YES_NO},
+    # 1.4: Settings › "J'ai un code" opened Apple's sheet for offer codes.
+    "offer_code_opened": {},
 }
 
 MAX_EVENTS_PER_BATCH = 200

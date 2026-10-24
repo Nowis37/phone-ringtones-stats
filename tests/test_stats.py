@@ -300,3 +300,41 @@ def test_catalogue_sounds_are_known_by_id_only(client, store):
         {"name": "ringtone_created", "props": {"source": "sound", "sound": "unknown-sound"}}))
     assert store.query("select props from events order by id") == [
         ('{"from": "home", "sound": "monkeys-spinning-monkeys"}',), ('{"from": "home"}',), ('{"source": "sound"}',)]
+
+
+def test_the_events_of_1_4_are_kept(client, store):
+    """No ad, the TikTok band, the weekly notification and the offer-code sheet
+    are kept with their closed details; anything else in them is dropped."""
+    device = str(uuid.uuid4())
+    client.post("/v1/events", json=batch(device,
+        {"name": "ad_unavailable", "props": {"why": "no_fill"}},
+        {"name": "ad_unavailable", "props": {"why": "because"}},
+        {"name": "tiktok_opened", "props": {"from": "doors"}},
+        {"name": "notification_offered", "props": {"answer": "yes"}},
+        {"name": "notification_permission", "props": {"granted": "no"}},
+        {"name": "notification_opened", "props": {}},
+        {"name": "notification_switched", "props": {"on": "no"}},
+        {"name": "offer_code_opened", "props": {}},
+        {"name": "sound_played", "props": {"sound": "ukulele", "from": "popular"}}))
+    assert store.query("select name, props from events order by id") == [
+        ("ad_unavailable", '{"why": "no_fill"}'), ("ad_unavailable", "{}"), ("tiktok_opened", '{"from": "doors"}'),
+        ("notification_offered", '{"answer": "yes"}'), ("notification_permission", '{"granted": "no"}'),
+        ("notification_opened", "{}"), ("notification_switched", '{"on": "no"}'), ("offer_code_opened", "{}"),
+        ("sound_played", '{"from": "popular", "sound": "ukulele"}')]
+
+
+def test_the_week_s_popular_sounds_are_the_most_made_then_the_most_heard(store):
+    """popular_7: ringtones made from a sound in the last 7 days first, then
+    listens; older ones do not count."""
+    now = int(time.time())
+    env = {"app": None, "os": None, "model": None, "lang": None, "country": None, "test": 0}
+    store.record("a", env, [
+        ("ringtone_created", now - DAY, {"sound": "menu"}),
+        ("ringtone_created", now - 2 * DAY, {"sound": "menu"}),
+        ("ringtone_created", now - 20 * DAY, {"sound": "ukulele"}),
+        ("ringtone_created", now - 3 * DAY, {"sound": "bells"}),
+        ("sound_played", now - DAY, {"sound": "dawn"}),
+        ("sound_played", now - DAY, {"sound": "dawn"}),
+        ("sound_played", now - DAY, {"sound": "bells"})], [], now=now - 30 * DAY)
+    m = compute(store, now=now)
+    assert m["popular_7"] == [["menu", 2, 0], ["bells", 1, 1], ["dawn", 0, 2]]

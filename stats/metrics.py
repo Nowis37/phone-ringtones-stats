@@ -116,22 +116,31 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         f"select e.device, e.name, e.at, e.props from events e join devices d on d.id = e.device "
         f"where e.name in ('sound_played', 'sound_favorited', 'ringtone_created') {test}")
     per_sound: dict[str, dict] = {}
+    since7 = now - 7 * DAY
     for device, name, at, props in sound_events:
         p = json.loads(props)
         sound = p.get("sound")
         if not sound:
             continue
-        row = per_sound.setdefault(sound, {"plays": 0, "plays_30": 0, "listeners": set(), "stars": 0, "created": 0})
+        row = per_sound.setdefault(sound, {"plays": 0, "plays_30": 0, "listeners": set(), "stars": 0, "created": 0,
+                                           "created_7": 0, "plays_7": 0})
         if name == "sound_played":
             row["plays"] += 1
             row["plays_30"] += at >= since30
+            row["plays_7"] += at >= since7
             row["listeners"].add(device)
         elif name == "sound_favorited":
             row["stars"] += 1 if p.get("on") == "yes" else -1
         else:
             row["created"] += 1
+            row["created_7"] += at >= since7
     sounds = sorted(([s, r["plays"], r["plays_30"], len(r["listeners"]), max(0, r["stars"]), r["created"]]
                      for s, r in per_sound.items()), key=lambda r: (-r[1], -r[5], r[0]))
+    # The week's most popular sounds (1.4): the most made into a ringtone in the
+    # last 7 days, then the most listened to. scripts/sounds/popular.sh reads it
+    # and publishes it with the catalogue: the app never asks this server.
+    popular_7 = sorted(([s, r["created_7"], r["plays_7"]] for s, r in per_sound.items() if r["created_7"] or r["plays_7"]),
+                       key=lambda r: (-r[1], -r[2], r[0]))[:20]
     features = store.query(
         f"select e.name, count(*), count(distinct e.device) from events e join devices d on d.id = e.device "
         f"where e.at >= ? {test} group by e.name order by e.name", (since30,))
@@ -177,6 +186,7 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         "by_source": sorted(by_source.items(), key=lambda kv: -kv[1]),
         "effects": effects,
         "sounds": sounds,
+        "popular_7": popular_7,
         "by_product": sorted(by_product.items(), key=lambda kv: -kv[1]),
         "dropped": store.query("select name, count from dropped order by count desc limit 20"),
         "tests_hidden": 0 if include_tests else store.query("select count(*) from devices where is_test = 1")[0][0],

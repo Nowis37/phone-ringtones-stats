@@ -39,6 +39,13 @@ LABELS = {
     "contact_assignment_completed": "Contact : fiche ouverte",
     "screen_viewed": "Écran vu",
     "crash_reported": "Plantage (signalé au lancement suivant)",
+    "ad_unavailable": "Pub : pas de pub (création bloquée)",
+    "tiktok_opened": "TikTok : compte ouvert",
+    "notification_offered": "Notification : réponse à la carte",
+    "notification_permission": "Notification : réponse d'iOS",
+    "notification_opened": "Notification : touchée",
+    "notification_switched": "Notification : interrupteur des Réglages",
+    "offer_code_opened": "Code d'offre : fenêtre ouverte",
 }
 
 STYLE = """
