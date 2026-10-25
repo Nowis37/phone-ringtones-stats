@@ -24,7 +24,8 @@ YES_NO = ("yes", "no")
 # Premium plans: weekly, yearly and lifetime since 1.3; monthly sold until 1.2.3.
 PLANS = ("weekly", "yearly", "lifetime", "monthly")
 # What opened the offer (`paywall_shown`, and since 1.4 the purchase it led to).
-REASONS = ("general", "sound", "bestPart", "speed", "reverb", "loop", "color", "style", "onboarding")
+REASONS = ("general", "sound", "bestPart", "speed", "reverb", "loop", "color", "style", "onboarding",
+           "welcomeSkipped")
 # The app's screens (Analytics.Screen). The console reads these values: never rename one.
 SCREENS = ("onboarding", "home", "library", "settings", "sounds", "editor", "best_part", "ad_gate",
            "limit", "ready", "install", "paywall", "contact", "privacy")
@@ -92,7 +93,8 @@ EVENTS: dict[str, dict[str, Any]] = {
                          # 1.3: a sound set straight from its bell, without the editor.
                          "quick": YES_NO},
     "ringtone_installed": {},
-    "ad_watched": {},
+    # 1.4: whether the ad had been loaded ahead, while the person edited.
+    "ad_watched": {"preloaded": YES_NO},
     "paywall_shown": {"reason": REASONS},
     # The welcome of 1.3: the screen reached, and the effects tried on the demo sound.
     "onboarding_step": {"step": ("promise", "result", "effects", "locks")},
@@ -146,6 +148,9 @@ EVENTS: dict[str, dict[str, Any]] = {
     # 1.4: a creation blocked because no ad came (Google had none, or no
     # network), or the ad closed before its end. What an eCPM floor would cost.
     "ad_unavailable": {"why": ("no_fill", "offline", "interrupted")},
+    # 1.4: the ad gate closed without the ad, and where it was then.
+    "ad_gate_left": {"at": ("offer", "loading", "watching", "no_fill", "offline", "interrupted"),
+                     "how": ("closed", "premium")},
     # 1.4: the band under the doors opened the app's TikTok account.
     "tiktok_opened": {"from": ("doors",)},
     # 1.4, the weekly notification: the home card's answer, iOS's answer, a

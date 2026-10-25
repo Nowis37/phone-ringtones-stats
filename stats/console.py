@@ -40,6 +40,7 @@ LABELS = {
     "screen_viewed": "Écran vu",
     "crash_reported": "Plantage (signalé au lancement suivant)",
     "ad_unavailable": "Pub : pas de pub (création bloquée)",
+    "ad_gate_left": "Pub : écran quitté sans la pub",
     "tiktok_opened": "TikTok : compte ouvert",
     "notification_offered": "Notification : réponse à la carte",
     "notification_permission": "Notification : réponse d'iOS",

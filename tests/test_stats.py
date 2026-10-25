@@ -335,13 +335,18 @@ def test_the_effects_pack_and_the_purchase_reason_are_kept(client, store):
         {"name": "purchase_started", "props": {"plan": "lifetime", "reason": "reverb"}},
         {"name": "purchase", "props": {"product": "lifetime", "reason": "speed"}},
         {"name": "purchase", "props": {"product": "lifetime", "reason": "tiktok"}},
-        {"name": "onboarding_effect", "props": {"effect": "slowed_reverb"}}))
+        {"name": "onboarding_effect", "props": {"effect": "slowed_reverb"}},
+        {"name": "ad_gate_left", "props": {"at": "no_fill", "how": "closed"}},
+        {"name": "ad_watched", "props": {"preloaded": "yes"}},
+        {"name": "paywall_shown", "props": {"reason": "welcomeSkipped"}}))
     assert store.query("select name, props from events order by id") == [
         ("ringtone_created", '{"reverb": "medium", "speed": "nightcore"}'), ("ringtone_created", "{}"),
         ("speed_sampled", '{"speed": "reverb_strong"}'), ("paywall_shown", '{"reason": "reverb"}'),
         ("purchase_started", '{"plan": "lifetime", "reason": "reverb"}'),
         ("purchase", '{"product": "lifetime", "reason": "speed"}'), ("purchase", '{"product": "lifetime"}'),
-        ("onboarding_effect", '{"effect": "slowed_reverb"}')]
+        ("onboarding_effect", '{"effect": "slowed_reverb"}'),
+        ("ad_gate_left", '{"at": "no_fill", "how": "closed"}'), ("ad_watched", '{"preloaded": "yes"}'),
+        ("paywall_shown", '{"reason": "welcomeSkipped"}')]
 
 
 def test_the_week_s_popular_sounds_are_the_most_made_then_the_most_heard(store):
