@@ -68,15 +68,15 @@ svg text{fill:var(--sub);font-size:10px}a{color:var(--accent)}
 # How ringtone_created details read in the console. An unknown one shows as sent.
 EFFECT_LABELS = {
     "source": "Source", "best_part": "Meilleur passage", "enhance": "Son amélioré",
-    "speed": "Vitesse", "loop": "Boucle parfaite", "premium": "Créée en Premium",
+    "speed": "Vitesse", "reverb": "Slowed + reverb", "loop": "Boucle parfaite", "premium": "Créée en Premium",
     "fade_in": "Fondu de début (s)", "fade_out": "Fondu de fin (s)", "volume": "Volume (%)",
     "bass": "Bass boost", "optimized": "Niveau optimisé", "sound": "Son intégré",
     "duration": "Durée (s)", "quick": "Son en 2 touches (sans l’éditeur)",
 }
 VALUE_LABELS = {
     "yes": "oui", "no": "non", "video": "vidéo", "audio": "audio", "sound": "son intégré",
-    "normal": "normale", "sped_up": "accélérée", "slowed": "ralentie",
-    "off": "non", "light": "léger", "strong": "fort",
+    "normal": "normale", "sped_up": "accélérée", "slowed": "ralentie", "nightcore": "nightcore",
+    "off": "non", "light": "léger", "medium": "moyen", "strong": "fort",
 }
 
 

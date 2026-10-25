@@ -323,6 +323,25 @@ def test_the_events_of_1_4_are_kept(client, store):
         ("sound_played", '{"from": "popular", "sound": "ukulele"}')]
 
 
+def test_the_effects_pack_and_the_purchase_reason_are_kept(client, store):
+    """1.4: nightcore and slowed + reverb in a ringtone and in a sample, and what
+    opened the offer that sold; unknown values are dropped."""
+    device = str(uuid.uuid4())
+    client.post("/v1/events", json=batch(device,
+        {"name": "ringtone_created", "props": {"speed": "nightcore", "reverb": "medium"}},
+        {"name": "ringtone_created", "props": {"reverb": "huge"}},
+        {"name": "speed_sampled", "props": {"speed": "reverb_strong"}},
+        {"name": "paywall_shown", "props": {"reason": "reverb"}},
+        {"name": "purchase_started", "props": {"plan": "lifetime", "reason": "reverb"}},
+        {"name": "purchase", "props": {"product": "lifetime", "reason": "speed"}},
+        {"name": "purchase", "props": {"product": "lifetime", "reason": "tiktok"}}))
+    assert store.query("select name, props from events order by id") == [
+        ("ringtone_created", '{"reverb": "medium", "speed": "nightcore"}'), ("ringtone_created", "{}"),
+        ("speed_sampled", '{"speed": "reverb_strong"}'), ("paywall_shown", '{"reason": "reverb"}'),
+        ("purchase_started", '{"plan": "lifetime", "reason": "reverb"}'),
+        ("purchase", '{"product": "lifetime", "reason": "speed"}'), ("purchase", '{"product": "lifetime"}')]
+
+
 def test_the_week_s_popular_sounds_are_the_most_made_then_the_most_heard(store):
     """popular_7: ringtones made from a sound in the last 7 days first, then
     listens; older ones do not count."""

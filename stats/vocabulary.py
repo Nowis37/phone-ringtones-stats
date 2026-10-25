@@ -23,6 +23,8 @@ from typing import Any
 YES_NO = ("yes", "no")
 # Premium plans: weekly, yearly and lifetime since 1.3; monthly sold until 1.2.3.
 PLANS = ("weekly", "yearly", "lifetime", "monthly")
+# What opened the offer (`paywall_shown`, and since 1.4 the purchase it led to).
+REASONS = ("general", "sound", "bestPart", "speed", "reverb", "loop", "color", "style", "onboarding")
 # The app's screens (Analytics.Screen). The console reads these values: never rename one.
 SCREENS = ("onboarding", "home", "library", "settings", "sounds", "editor", "best_part", "ad_gate",
            "limit", "ready", "install", "paywall", "contact", "privacy")
@@ -80,7 +82,9 @@ EVENTS: dict[str, dict[str, Any]] = {
     # Every setting since 1.2.3: fades in whole seconds (0 = none, 0 under the
     # loop), volume in %, bass, levelling, the built-in sound, length in seconds.
     "ringtone_created": {"best_part": YES_NO, "enhance": YES_NO, "premium": YES_NO,
-                         "speed": ("normal", "sped_up", "slowed"), "loop": YES_NO,
+                         "speed": ("normal", "sped_up", "slowed", "nightcore"), "loop": YES_NO,
+                         # 1.4: slowed + reverb and its intensity.
+                         "reverb": ("off", "light", "medium", "strong"),
                          "source": ("video", "audio", "sound"),
                          "fade_in": int, "fade_out": int, "volume": int,
                          "bass": ("off", "light", "strong"), "optimized": YES_NO,
@@ -89,16 +93,16 @@ EVENTS: dict[str, dict[str, Any]] = {
                          "quick": YES_NO},
     "ringtone_installed": {},
     "ad_watched": {},
-    "paywall_shown": {"reason": ("general", "sound", "bestPart", "speed", "loop", "color", "style", "onboarding")},
+    "paywall_shown": {"reason": REASONS},
     # The welcome of 1.3: the screen reached, and the effects tried on the demo sound.
     "onboarding_step": {"step": ("promise", "result", "effects", "locks")},
     "onboarding_effect": {"effect": ("sped_up", "loop", "bass", "enhance", "fade", "volume")},
-    "purchase": {"product": PLANS, "trial": YES_NO},
+    "purchase": {"product": PLANS, "trial": YES_NO, "reason": REASONS},
     # The way to a purchase (1.3): a plan touched, the advantages unfolded, the
     # purchase asked of Apple and how it ended, how the offer was left.
     "paywall_plan_selected": {"plan": PLANS},
     "paywall_expanded": {},
-    "purchase_started": {"plan": PLANS, "trial": YES_NO},
+    "purchase_started": {"plan": PLANS, "trial": YES_NO, "reason": REASONS},
     "purchase_ended": {"plan": PLANS, "result": ("success", "cancelled", "pending", "failed", "unverified",
                                                   "unavailable")},
     "paywall_dismissed": {"how": ("close", "free", "purchased")},
@@ -111,9 +115,10 @@ EVENTS: dict[str, dict[str, Any]] = {
     "smart_audio_enhance_applied": {},
     "smart_audio_enhance_undone": {},
     "smart_audio_enhance_compared": {"heard": ("original", "enhanced")},
-    # A free user heard the five-second sample of a speed: the one Premium effect
-    # that can be heard before paying. Read against "purchase".
-    "speed_sampled": {"speed": ("sped_up", "slowed")},
+    # A free user heard the five-second sample of a speed, or (1.4) of slowed +
+    # reverb at one intensity. Read against "purchase".
+    "speed_sampled": {"speed": ("sped_up", "slowed", "nightcore", "reverb_light", "reverb_medium",
+                                "reverb_strong")},
     "app_color_chosen": {"kind": ("auto", "free", "premium")},
     # Classique or Pop (Premium, 1.2), chosen in Settings.
     "app_style_chosen": {"style": ("classic", "pop")},
