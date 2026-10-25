@@ -96,7 +96,8 @@ EVENTS: dict[str, dict[str, Any]] = {
     "paywall_shown": {"reason": REASONS},
     # The welcome of 1.3: the screen reached, and the effects tried on the demo sound.
     "onboarding_step": {"step": ("promise", "result", "effects", "locks")},
-    "onboarding_effect": {"effect": ("sped_up", "loop", "bass", "enhance", "fade", "volume")},
+    "onboarding_effect": {"effect": ("sped_up", "loop", "bass", "enhance", "fade", "volume", "slowed_reverb",
+                                     "nightcore")},
     "purchase": {"product": PLANS, "trial": YES_NO, "reason": REASONS},
     # The way to a purchase (1.3): a plan touched, the advantages unfolded, the
     # purchase asked of Apple and how it ended, how the offer was left.
