@@ -340,7 +340,9 @@ def test_the_effects_pack_and_the_purchase_reason_are_kept(client, store):
         {"name": "ad_watched", "props": {"preloaded": "yes"}},
         {"name": "paywall_shown", "props": {"reason": "welcomeSkipped"}},
         {"name": "invite_ended", "props": {"from": "ad_gate", "result": "sent", "reward": "yes", "who": "Léa"}},
-        {"name": "ringtone_sent", "props": {"app": "whatsapp", "completed": "yes"}}))
+        {"name": "ringtone_sent", "props": {"app": "whatsapp", "completed": "yes"}},
+        {"name": "story_shared", "props": {"look": "call", "app": "tiktok", "completed": "yes"}},
+        {"name": "sound_sent", "props": {"sound": "menu", "app": "net.whatsapp.ShareExtension", "completed": "yes"}}))
     assert store.query("select name, props from events order by id") == [
         ("ringtone_created", '{"reverb": "medium", "speed": "nightcore"}'), ("ringtone_created", "{}"),
         ("speed_sampled", '{"speed": "reverb_strong"}'), ("paywall_shown", '{"reason": "reverb"}'),
@@ -350,7 +352,9 @@ def test_the_effects_pack_and_the_purchase_reason_are_kept(client, store):
         ("ad_gate_left", '{"at": "no_fill", "how": "closed"}'), ("ad_watched", '{"preloaded": "yes"}'),
         ("paywall_shown", '{"reason": "welcomeSkipped"}'),
         ("invite_ended", '{"from": "ad_gate", "result": "sent", "reward": "yes"}'),
-        ("ringtone_sent", '{"app": "whatsapp", "completed": "yes"}')]
+        ("ringtone_sent", '{"app": "whatsapp", "completed": "yes"}'),
+        ("story_shared", '{"app": "tiktok", "completed": "yes", "look": "call"}'),
+        ("sound_sent", '{"completed": "yes", "sound": "menu"}')]
 
 
 def test_the_week_s_popular_sounds_are_the_most_made_then_the_most_heard(store):

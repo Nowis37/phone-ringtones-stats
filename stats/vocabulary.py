@@ -28,7 +28,7 @@ REASONS = ("general", "sound", "bestPart", "speed", "reverb", "loop", "color", "
            "welcomeSkipped")
 # The app's screens (Analytics.Screen). The console reads these values: never rename one.
 SCREENS = ("onboarding", "home", "library", "settings", "sounds", "editor", "best_part", "ad_gate",
-           "limit", "ready", "install", "paywall", "contact", "privacy")
+           "limit", "ready", "install", "paywall", "contact", "privacy", "story", "qr")
 # The app's built-in sounds (BuiltInSound). Never rename one: the console reads them.
 SOUNDS = ("ukulele", "good-mood", "menu", "hardstyle", "vibraphone", "bells", "rhodes", "crystals",
           "wah-wah", "baroque", "dawn", "chimes", "music-box", "pixel", "neon", "turkish-march",
@@ -73,6 +73,9 @@ class KnownSounds:
 
 
 SOUND = KnownSounds(SOUNDS)
+# Where a share went (SharingApps in the app), never the raw identifier.
+SHARE_APPS = ("tiktok", "instagram", "snapchat", "whatsapp", "telegram", "messenger", "messages", "mail",
+              "airdrop", "photos", "copy", "other", "none")
 
 # Each event and the details it may carry. A tuple means "one of these strings",
 # `int` a whole number between 0 and 10 000. Anything else is dropped.
@@ -158,8 +161,13 @@ EVENTS: dict[str, dict[str, Any]] = {
     "invite_ended": {"from": ("ad_gate", "home", "settings"),
                      "result": ("sent", "cancelled", "failed", "same_friend"), "reward": YES_NO},
     "invite_reward_used": {},
-    "ringtone_sent": {"app": ("messages", "whatsapp", "instagram", "snapchat", "telegram", "messenger", "mail",
-                              "airdrop", "copy", "other", "none"), "completed": YES_NO},
+    "ringtone_sent": {"app": SHARE_APPS, "completed": YES_NO},
+    # 1.4: the ringtone as a story video (the sheet opened, the video shared),
+    # a sound sent to a friend, and the QR code shown.
+    "story_opened": {"from": ("ready", "library")},
+    "story_shared": {"look": ("video", "call", "pop", "wave"), "app": SHARE_APPS, "completed": YES_NO},
+    "sound_sent": {"sound": SOUND, "app": SHARE_APPS, "completed": YES_NO},
+    "qr_shown": {},
     # 1.4: the band under the doors opened the app's TikTok account.
     "tiktok_opened": {"from": ("doors",)},
     # 1.4, the weekly notification: the home card's answer, iOS's answer, a
