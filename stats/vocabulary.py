@@ -149,8 +149,17 @@ EVENTS: dict[str, dict[str, Any]] = {
     # network), or the ad closed before its end. What an eCPM floor would cost.
     "ad_unavailable": {"why": ("no_fill", "offline", "interrupted")},
     # 1.4: the ad gate closed without the ad, and where it was then.
-    "ad_gate_left": {"at": ("offer", "loading", "watching", "no_fill", "offline", "interrupted"),
+    "ad_gate_left": {"at": ("offer", "loading", "watching", "no_fill", "offline", "interrupted", "thanked",
+                            "same_friend"),
                      "how": ("closed", "premium")},
+    # 1.4, word of mouth: the app's link to a friend by Messages (a ringtone
+    # without ad, once a day, once per friend), and a ringtone sent to a friend.
+    "invite_started": {"from": ("ad_gate", "home", "settings")},
+    "invite_ended": {"from": ("ad_gate", "home", "settings"),
+                     "result": ("sent", "cancelled", "failed", "same_friend"), "reward": YES_NO},
+    "invite_reward_used": {},
+    "ringtone_sent": {"app": ("messages", "whatsapp", "instagram", "snapchat", "telegram", "messenger", "mail",
+                              "airdrop", "copy", "other", "none"), "completed": YES_NO},
     # 1.4: the band under the doors opened the app's TikTok account.
     "tiktok_opened": {"from": ("doors",)},
     # 1.4, the weekly notification: the home card's answer, iOS's answer, a
