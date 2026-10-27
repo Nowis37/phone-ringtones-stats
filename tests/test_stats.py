@@ -425,3 +425,46 @@ def test_live_devices_are_those_seen_minutes_ago(store):
     store.record("b", env, [("app_opened", now - 900, {})], [], now=now - 900)
     m = compute(store, now=now)
     assert (m["live_5"], m["live_30"]) == (1, 2)
+
+
+def test_weekly_cohorts_judge_each_device_on_its_own_weeks():
+    from datetime import datetime
+
+    from stats.metrics import PARIS, weekly_cohorts
+
+    def at(*when):
+        return int(datetime(*when, tzinfo=PARIS).timestamp())
+
+    now = at(2026, 10, 28, 12)  # a Wednesday
+    first = {
+        "a": at(2026, 10, 12, 10),  # Monday: its week 1 is over
+        "b": at(2026, 10, 18, 20),  # Sunday, same arrival week: its week 1 is not
+        "c": at(2026, 10, 5, 9),
+        "d": at(2026, 10, 27, 8),  # this week
+        "old": at(2026, 1, 1, 12),  # before the twelve weeks
+    }
+    opens = {
+        "a": [first["a"] + 8 * DAY, first["a"] + 15 * DAY],
+        # The next calendar Monday is still b's own first week: not a return.
+        "b": [first["b"] + DAY],
+        "c": [first["c"] + 8 * DAY],
+    }
+    cohorts = weekly_cohorts(first, opens, now)
+    assert len(cohorts) == 12
+    by_week = {c["week"]: c for c in cohorts}
+    # a's week 2 has not ended yet, b's week 1 neither: neither is counted.
+    assert by_week[at(2026, 10, 12)] == {"week": at(2026, 10, 12), "size": 2, "weeks": [[1, 1]]}
+    assert by_week[at(2026, 10, 5)]["weeks"] == [[1, 1], [0, 1]]
+    assert by_week[at(2026, 10, 26)] == {"week": at(2026, 10, 26), "size": 1, "weeks": []}
+    assert sum(c["size"] for c in cohorts) == 4
+
+
+def test_console_json_sends_the_cohorts(store):
+    client = TestClient(create_app(store, admin_token="secret", console_token="reader"))
+    now = int(time.time())
+    env = {"app": None, "os": None, "model": None, "lang": None, "country": None, "test": 0}
+    store.record("a", env, [("app_opened", now - 9 * DAY, {}), ("app_opened", now - DAY, {})], [],
+                 now=now - 9 * DAY)
+    body = client.get("/v1/console.json", headers={"Authorization": "Bearer reader"}).json()
+    assert len(body["cohorts"]) == 12
+    assert sum(c["size"] for c in body["cohorts"]) == 1

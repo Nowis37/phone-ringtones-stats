@@ -15,6 +15,9 @@ from zoneinfo import ZoneInfo
 from .store import Store
 
 DAY = 86400
+WEEK = 7 * DAY
+# How many weeks of arrivals the console's cohort table shows.
+COHORT_WEEKS = 12
 # Days begin at midnight in Paris (27 Oct 2026, Simon: « les jours s'arrêtent
 # à 1 h du matin » - they were UTC days, and France is an hour or two ahead).
 PARIS = ZoneInfo("Europe/Paris")
@@ -27,6 +30,37 @@ def paris_midnights(now: int, count: int) -> list[int]:
     today = datetime.fromtimestamp(now, PARIS).date()
     return [int(datetime.combine(today - timedelta(days=k), clock(), PARIS).timestamp())
             for k in range(count - 1, -1, -1)]
+
+
+def weekly_cohorts(first: dict[str, int], opens: dict[str, list[int]], now: int,
+                   weeks: int = COHORT_WEEKS) -> list[dict]:
+    """Who comes back, week after week, per week of arrival (27 Oct 2026, Simon:
+    « rétention par semaine d'arrivée »). Arrival weeks begin on Monday in Paris.
+    A device's week k is days 7k to 7k+6 after its own first day, not the k-th
+    calendar week: a phone that arrived on Sunday is not judged on the Monday
+    after. Each cell is [came back that week, could have]: only the devices
+    whose week k is over count, so a young week is never read as a bad one."""
+    today = datetime.fromtimestamp(now, PARIS).date()
+    monday = today - timedelta(days=today.weekday())
+    starts = [int(datetime.combine(monday - timedelta(weeks=k), clock(), PARIS).timestamp())
+              for k in range(weeks - 1, -1, -1)]
+    members: list[list[str]] = [[] for _ in starts]
+    for device, at in first.items():
+        if at >= starts[0]:
+            members[bisect_right(starts, at) - 1].append(device)
+    # The weeks after arrival in which each device opened the app.
+    seen = {d: {(at - first[d]) // WEEK for at in opens.get(d, ()) if at >= first[d]}
+            for group in members for d in group}
+    out = []
+    for start, group in zip(starts, members, strict=True):
+        cells = []
+        for k in range(1, weeks):
+            could = [d for d in group if first[d] + (k + 1) * WEEK <= now]
+            if not could:
+                break
+            cells.append([sum(1 for d in could if k in seen[d]), len(could)])
+        out.append({"week": start, "size": len(group), "weeks": cells})
+    return out
 
 
 def compute(store: Store, include_tests: bool = False, now: int | None = None, days: int = 30,
@@ -58,6 +92,7 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         eligible = [d for d, f in first.items() if now - f >= n * DAY]
         back = [d for d in eligible if any(at - first[d] >= n * DAY for at in opens_by_device.get(d, []))]
         retention[n] = (len(back), len(eligible))
+    cohorts = weekly_cohorts(first, opens_by_device, now)
     came_back = sum(1 for d, ats in opens_by_device.items()
                     if d in first and len({(at - first[d]) // DAY for at in ats} - {0}) > 0)
 
@@ -202,6 +237,7 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         "buckets": [(k, buckets.get(k, 0)) for k in ("0", "1", "2", "3–5", "6+")],
         "retention": retention,
         "came_back": came_back,
+        "cohorts": cohorts,
         "daily": daily,
         "hourly": hourly,
         "hours_back": max(0, hours_back),
