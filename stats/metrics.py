@@ -63,6 +63,68 @@ def weekly_cohorts(first: dict[str, int], opens: dict[str, list[int]], now: int,
     return out
 
 
+# Word of mouth (1.4): the buttons arrived with 1.4, out on 27 Oct 2026. The
+# events do not carry the app's version, a device does (the last it sent), so
+# the base is the devices on 1.4 or later that made a ringtone since that day.
+SHARING_SINCE = int(datetime(2026, 10, 27, tzinfo=PARIS).timestamp())
+SHARING_VERSION = (1, 4)
+# Four buttons, not four steps: each is a send that went through, and what was
+# tried. An invite is tried when its sheet opens, and sent when Messages says
+# so; the three others are sheets that close with `completed`.
+SHARING = {
+    "invite": ("invite_ended", "invite_started", lambda p: p.get("result") == "sent"),
+    "ringtone": ("ringtone_sent", "ringtone_sent", lambda p: p.get("completed") == "yes"),
+    "story": ("story_shared", "story_shared", lambda p: p.get("completed") == "yes"),
+    "sound": ("sound_sent", "sound_sent", lambda p: p.get("completed") == "yes"),
+}
+INVITE_FROM = ("ad_gate", "home", "settings")
+
+
+def version(app: str | None) -> tuple[int, ...]:
+    """« 1.4 (25) » as (1, 4): the build number aside. Nothing readable is (0,)."""
+    head = (app or "").split(" ")[0]
+    parts = []
+    for piece in head.split("."):
+        if not piece.isdigit():
+            break
+        parts.append(int(piece))
+    return tuple(parts) or (0,)
+
+
+def word_of_mouth(apps: dict[str, str | None], created: list[tuple], shared: list[tuple]) -> dict:
+    """What each sharing button did since 1.4: the devices whose send went
+    through, the sends and the tries, and the invites by the screen they came
+    from. `apps` maps each device to its version, `created` and `shared` are
+    (device, name, at, props) rows already read since `SHARING_SINCE`."""
+    base = {d for d, _, at, _ in created
+            if at >= SHARING_SINCE and d in apps and version(apps[d]) >= SHARING_VERSION}
+    rows = []
+    for device, name, at, props in shared:
+        if device not in apps or at < SHARING_SINCE:
+            continue
+        try:
+            parsed = json.loads(props or "{}")
+        except ValueError:
+            parsed = {}
+        rows.append((device, name, parsed))
+    channels = {}
+    for key, (done_name, tried_name, went) in SHARING.items():
+        done = [(d, p) for d, n, p in rows if n == done_name and went(p)]
+        channels[key] = {
+            "devices": len({d for d, _ in done}),
+            "sent": len(done),
+            "tried": sum(1 for _, n, _ in rows if n == tried_name),
+        }
+    def invites(where: str, name: str, went=lambda p: True) -> int:
+        return sum(1 for _, n, p in rows if n == name and p.get("from") == where and went(p))
+
+    went_invite = SHARING["invite"][2]
+    invites_from = {where: [invites(where, "invite_ended", went_invite), invites(where, "invite_started")]
+                    for where in INVITE_FROM}
+    return {"since": SHARING_SINCE, "version": ".".join(map(str, SHARING_VERSION)), "base": len(base),
+            "channels": channels, "invites_from": invites_from}
+
+
 def compute(store: Store, include_tests: bool = False, now: int | None = None, days: int = 30,
             hours_back: int = 0) -> dict:
     """Everything the console shows. `days` is how far back the day-by-day series go;
@@ -208,6 +270,17 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         f"where e.at >= ? and e.props != '{{}}' {test} group by e.name, e.props order by e.name, 3 desc",
         (since30,))
 
+    names = sorted({n for done, tried, _ in SHARING.values() for n in (done, tried)})
+    sharing = word_of_mouth(
+        dict(store.query(f"select id, app from devices d where 1=1 {test}")),
+        store.query(
+            f"select e.device, e.name, e.at, e.props from events e join devices d on d.id = e.device "
+            f"where e.name = 'ringtone_created' and e.at >= ? {test}", (SHARING_SINCE,)),
+        store.query(
+            f"select e.device, e.name, e.at, e.props from events e join devices d on d.id = e.device "
+            f"where e.name in ({','.join('?' * len(names))}) and e.at >= ? {test}", (*names, SHARING_SINCE)),
+    )
+
     def top(column: str) -> list[tuple]:
         return store.query(
             f"select coalesce({column}, '?'), count(*) from devices d where 1=1 {test} "
@@ -238,6 +311,7 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         "retention": retention,
         "came_back": came_back,
         "cohorts": cohorts,
+        "sharing": sharing,
         "daily": daily,
         "hourly": hourly,
         "hours_back": max(0, hours_back),

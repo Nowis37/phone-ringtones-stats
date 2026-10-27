@@ -468,3 +468,59 @@ def test_console_json_sends_the_cohorts(store):
     body = client.get("/v1/console.json", headers={"Authorization": "Bearer reader"}).json()
     assert len(body["cohorts"]) == 12
     assert sum(c["size"] for c in body["cohorts"]) == 1
+
+
+def test_word_of_mouth_counts_sends_that_went_through_on_its_own_base():
+    from stats.metrics import SHARING_SINCE, version, word_of_mouth
+
+    after = SHARING_SINCE + DAY
+    apps = {"a": "1.4 (25)", "b": "1.4.1 (27)", "old": "1.3 (20)", "c": "1.4 (25)"}
+    created = [
+        ("a", "ringtone_created", after, "{}"),
+        ("b", "ringtone_created", after, "{}"),
+        # On 1.3: it never had the buttons, it is not in the base.
+        ("old", "ringtone_created", after, "{}"),
+        # Before 1.4: not in the base either.
+        ("c", "ringtone_created", SHARING_SINCE - DAY, "{}"),
+    ]
+    shared = [
+        ("a", "invite_started", after, '{"from": "ad_gate"}'),
+        ("a", "invite_started", after, '{"from": "ad_gate"}'),
+        ("a", "invite_ended", after, '{"from": "ad_gate", "result": "cancelled"}'),
+        ("a", "invite_ended", after, '{"from": "ad_gate", "result": "sent"}'),
+        ("b", "invite_started", after, '{"from": "settings"}'),
+        ("b", "invite_ended", after, '{"from": "settings", "result": "same_friend"}'),
+        ("a", "ringtone_sent", after, '{"completed": "no"}'),
+        ("b", "ringtone_sent", after, '{"completed": "yes"}'),
+        ("b", "story_shared", after, '{"completed": "yes"}'),
+        ("c", "sound_sent", after, '{"completed": "yes"}'),
+        # A device left out (a test phone) counts nowhere.
+        ("ghost", "sound_sent", after, '{"completed": "yes"}'),
+    ]
+    out = word_of_mouth(apps, created, shared)
+    assert out["base"] == 2
+    assert out["channels"]["invite"] == {"devices": 1, "sent": 1, "tried": 3}
+    assert out["channels"]["ringtone"] == {"devices": 1, "sent": 1, "tried": 2}
+    assert out["channels"]["story"] == {"devices": 1, "sent": 1, "tried": 1}
+    assert out["channels"]["sound"] == {"devices": 1, "sent": 1, "tried": 1}
+    assert out["invites_from"] == {"ad_gate": [1, 2], "home": [0, 0], "settings": [0, 1]}
+    assert version("1.4 (25)") == (1, 4) and version("1.10") > version("1.9") and version(None) == (0,)
+
+
+def test_console_json_sends_word_of_mouth_without_test_devices(store):
+    from stats.metrics import SHARING_SINCE
+
+    client = TestClient(create_app(store, admin_token="secret", console_token="reader"))
+    now = max(int(time.time()), SHARING_SINCE + 2 * DAY)
+    env = {"app": "1.4 (25)", "os": None, "model": None, "lang": None, "country": None, "test": 0}
+    at = now - DAY
+    store.record("a", env, [("ringtone_created", at, {}), ("invite_started", at, {"from": "home"}),
+                            ("invite_ended", at, {"from": "home", "result": "sent"})], [], now=at)
+    store.record("t", {**env, "test": 1}, [("ringtone_created", at, {}),
+                                           ("sound_sent", at, {"completed": "yes"})], [], now=at)
+    body = client.get("/v1/console.json", headers={"Authorization": "Bearer reader"}).json()
+    sharing = body["sharing"]
+    assert sharing["base"] == 1
+    assert sharing["channels"]["invite"] == {"devices": 1, "sent": 1, "tried": 1}
+    assert sharing["channels"]["sound"]["devices"] == 0
+    assert sharing["invites_from"]["home"] == [1, 1]
