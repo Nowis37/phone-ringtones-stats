@@ -6,11 +6,27 @@ phones that skew the numbers most are the ones used to build the app.
 
 import json
 import time
+from bisect import bisect_right
 from collections import Counter
+from datetime import datetime, timedelta
+from datetime import time as clock
+from zoneinfo import ZoneInfo
 
 from .store import Store
 
 DAY = 86400
+# Days begin at midnight in Paris (27 Oct 2026, Simon: « les jours s'arrêtent
+# à 1 h du matin » - they were UTC days, and France is an hour or two ahead).
+PARIS = ZoneInfo("Europe/Paris")
+
+
+def paris_midnights(now: int, count: int) -> list[int]:
+    """The `count` last midnights in Paris, oldest first, today's last. A day
+    across a change of time is 23 or 25 hours long: each midnight is computed,
+    never added."""
+    today = datetime.fromtimestamp(now, PARIS).date()
+    return [int(datetime.combine(today - timedelta(days=k), clock(), PARIS).timestamp())
+            for k in range(count - 1, -1, -1)]
 
 
 def compute(store: Store, include_tests: bool = False, now: int | None = None, days: int = 30,
@@ -66,15 +82,16 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         f"where e.name = 'purchase' {test}"
     )
 
-    def series(width: int, count: int, end: int | None = None) -> list[dict]:
-        """`count` buckets of `width` seconds, oldest first, the last one the
-        current. One pass over each list: the console asks for 13 months of
-        days and 48 hours, and a scan per bucket would be thousands of scans."""
-        first_bucket = (end or now) // width - (count - 1)
+    def series(starts: list[int], stop: int) -> list[dict]:
+        """One bucket per start, oldest first, the last one ending at `stop`.
+        One pass over each list: the console asks for 13 months of days and
+        48 hours, and a scan per bucket would be thousands of scans."""
+        count = len(starts)
 
         def slot(at: int) -> int | None:
-            k = at // width - first_bucket
-            return k if 0 <= k < count else None
+            if at < starts[0] or at >= stop:
+                return None
+            return bisect_right(starts, at) - 1
 
         rows = [{"new": 0, "active": set(), "created": 0, "ads": 0, "purchases": 0} for _ in range(count)]
         for f in first.values():
@@ -87,11 +104,16 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
             for row in events:
                 if (k := slot(row[1])) is not None:
                     rows[k][key] += 1
-        return [{**r, "active": len(r["active"]), "at": (first_bucket + k) * width} for k, r in enumerate(rows)]
+        return [{**r, "active": len(r["active"]), "at": starts[k]} for k, r in enumerate(rows)]
 
-    daily = [{**r, "day": r.pop("at")} for r in series(DAY, max(1, days))]
-    # For the console's « Heure » zoom: the last 48 hours, the current one last.
-    hourly = series(3600, 48, now - max(0, hours_back) * 48 * 3600)
+    midnights = paris_midnights(now, max(1, days))
+    tomorrow = int(datetime.combine(datetime.fromtimestamp(now, PARIS).date() + timedelta(days=1),
+                                    clock(), PARIS).timestamp())
+    daily = [{**r, "day": r.pop("at")} for r in series(midnights, tomorrow)]
+    # For the console's « Heure » zoom: the last 48 hours, the current one last
+    # (an hour is the same in Paris and in UTC: the offset is whole hours).
+    end_hour = (now - max(0, hours_back) * 48 * 3600) // 3600 * 3600
+    hourly = series([end_hour - 3600 * k for k in range(47, -1, -1)], end_hour + 3600)
 
     # Where a ringtone starts from: the closest thing the app has to "by creator",
     # since nothing about a person or a file is ever sent.
@@ -165,6 +187,11 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         # The same windows one step earlier, for the console's « + % »: the 24 h
         # before the last 24 h, and so on.
         "active_1_prev": active(now - 2 * DAY, now - DAY),
+        # « En direct » for the console's turning card: phones that sent
+        # something in the last 5 and 30 minutes. The app sends at opening and
+        # when it goes to the background, so a long sitting shows at its start.
+        "live_5": sum(1 for d in devices if d[2] >= now - 300),
+        "live_30": sum(1 for d in devices if d[2] >= now - 1800),
         "active_7_prev": active(now - 14 * DAY, now - 7 * DAY),
         "active_30_prev": active(now - 60 * DAY, now - 30 * DAY),
         "new_7": sum(1 for f in first.values() if f >= now - 7 * DAY),

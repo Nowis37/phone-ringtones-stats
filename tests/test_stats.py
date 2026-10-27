@@ -256,7 +256,8 @@ def test_series_count_each_event_in_its_own_bucket(store):
     assert [d["created"] for d in m["daily"]][-4] == 1
     assert sum(d["created"] for d in m["daily"]) == 2
     assert sum(h["created"] for h in m["hourly"]) == 1
-    assert m["daily"][-1]["day"] == (now // DAY) * DAY
+    from stats.metrics import paris_midnights
+    assert m["daily"][-1]["day"] == paris_midnights(now, 1)[0]
 
 
 def test_the_welcome_is_measured(client, store):
@@ -397,3 +398,30 @@ def test_active_devices_have_their_previous_window(store):
     assert (m["active_1"], m["active_1_prev"]) == (1, 1)
     assert (m["active_7"], m["active_7_prev"]) == (2, 1)
     assert m["active_30_prev"] == 0
+
+
+def test_a_day_starts_at_midnight_in_paris(store):
+    """27 Oct 2026: the days ended at 1 a.m. - they were UTC days."""
+    from datetime import datetime, timedelta
+    from datetime import time as clock
+
+    from stats.metrics import PARIS
+    now = int(time.time())
+    today = datetime.fromtimestamp(now, PARIS).date()
+    five_past = int(datetime.combine(today, clock(0, 5), PARIS).timestamp())
+    before = int(datetime.combine(today - timedelta(days=1), clock(23, 55), PARIS).timestamp())
+    env = {"app": None, "os": None, "model": None, "lang": None, "country": None, "test": 0}
+    store.record("a", env, [("ringtone_created", five_past, {}), ("ringtone_created", before, {})], [],
+                 now=min(now, five_past))
+    m = compute(store, now=max(now, five_past + 1), days=3)
+    assert [d["created"] for d in m["daily"]] == [0, 1, 1]
+    assert m["daily"][-1]["day"] == int(datetime.combine(today, clock(), PARIS).timestamp())
+
+
+def test_live_devices_are_those_seen_minutes_ago(store):
+    now = int(time.time())
+    env = {"app": None, "os": None, "model": None, "lang": None, "country": None, "test": 0}
+    store.record("a", env, [("app_opened", now - 60, {})], [], now=now - 60)
+    store.record("b", env, [("app_opened", now - 900, {})], [], now=now - 900)
+    m = compute(store, now=now)
+    assert (m["live_5"], m["live_30"]) == (1, 2)
