@@ -13,8 +13,10 @@ from .store import Store
 DAY = 86400
 
 
-def compute(store: Store, include_tests: bool = False, now: int | None = None, days: int = 30) -> dict:
-    """Everything the console shows. `days` is how far back the day-by-day series go."""
+def compute(store: Store, include_tests: bool = False, now: int | None = None, days: int = 30,
+            hours_back: int = 0) -> dict:
+    """Everything the console shows. `days` is how far back the day-by-day series go;
+    `hours_back` moves the 48 hours that many windows of 48 hours into the past."""
     now = now or int(time.time())
     test = "" if include_tests else "and d.is_test = 0"
     devices = store.query(f"select id, first_seen, last_seen from devices d where 1=1 {test}")
@@ -50,8 +52,8 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         buckets["0" if n == 0 else "1" if n == 1 else "2" if n == 2 else "3–5" if n <= 5 else "6+"] += 1
     creators = [n for d, n in per_device.items() if d in ids]
 
-    def active(since: int) -> int:
-        return len({d for d, at in opened if at >= since})
+    def active(since: int, until: int | None = None) -> int:
+        return len({d for d, at in opened if at >= since and (until is None or at < until)})
 
     # Ads watched and purchases, read the same way as creations: test devices out
     # unless asked for, so a day of building the app does not look like a launch.
@@ -64,11 +66,11 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         f"where e.name = 'purchase' {test}"
     )
 
-    def series(width: int, count: int) -> list[dict]:
+    def series(width: int, count: int, end: int | None = None) -> list[dict]:
         """`count` buckets of `width` seconds, oldest first, the last one the
         current. One pass over each list: the console asks for 13 months of
         days and 48 hours, and a scan per bucket would be thousands of scans."""
-        first_bucket = now // width - (count - 1)
+        first_bucket = (end or now) // width - (count - 1)
 
         def slot(at: int) -> int | None:
             k = at // width - first_bucket
@@ -89,7 +91,7 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
 
     daily = [{**r, "day": r.pop("at")} for r in series(DAY, max(1, days))]
     # For the console's « Heure » zoom: the last 48 hours, the current one last.
-    hourly = series(3600, 48)
+    hourly = series(3600, 48, now - max(0, hours_back) * 48 * 3600)
 
     # Where a ringtone starts from: the closest thing the app has to "by creator",
     # since nothing about a person or a file is ever sent.
@@ -160,6 +162,11 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         "active_1": active(now - DAY),
         "active_7": active(now - 7 * DAY),
         "active_30": active(now - 30 * DAY),
+        # The same windows one step earlier, for the console's « + % »: the 24 h
+        # before the last 24 h, and so on.
+        "active_1_prev": active(now - 2 * DAY, now - DAY),
+        "active_7_prev": active(now - 14 * DAY, now - 7 * DAY),
+        "active_30_prev": active(now - 60 * DAY, now - 30 * DAY),
         "new_7": sum(1 for f in first.values() if f >= now - 7 * DAY),
         "created_total": sum(creators),
         "created_7": sum(1 for d, at, _ in created if at >= now - 7 * DAY and d in ids),
@@ -170,6 +177,7 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         "came_back": came_back,
         "daily": daily,
         "hourly": hourly,
+        "hours_back": max(0, hours_back),
         "features": features,
         "details": details,
         "os": top("substr(os, 1, instr(os || '.', '.') - 1)"),

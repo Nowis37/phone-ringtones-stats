@@ -102,13 +102,17 @@ def create_app(store: Store | None = None, admin_token: str | None = None,
         return console.render(metrics.compute(store, include_tests=bool(tests)), include_tests=bool(tests))
 
     @app.get("/v1/console.json")
-    def console_json(tests: int = 0, authorization: str = Header(default="")) -> JSONResponse:
+    def console_json(tests: int = 0, hours_back: int = 0,
+                     authorization: str = Header(default="")) -> JSONResponse:
         given = authorization.removeprefix("Bearer ").strip()
         if not reader or not secrets.compare_digest(given.encode(), reader.encode()):
             return JSONResponse({"error": "unauthorized"}, status_code=401)
         # 13 months of days: everything the store keeps, so the console can
         # zoom out to months and years.
-        numbers = metrics.compute(store, include_tests=bool(tests), days=RETENTION_DAYS)
+        # `hours_back`: the console's ‹ under « Heure », 48 hours per step,
+        # no further back than the store keeps.
+        numbers = metrics.compute(store, include_tests=bool(tests), days=RETENTION_DAYS,
+                                  hours_back=max(0, min(hours_back, RETENTION_DAYS // 2)))
         numbers["retention"] = {str(n): list(pair) for n, pair in numbers["retention"].items()}
         numbers["collected"] = {name: name in EVENTS for name in AWAITED}
         numbers["vocabulary"] = sorted(EVENTS)

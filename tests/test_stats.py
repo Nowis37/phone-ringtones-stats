@@ -372,3 +372,28 @@ def test_the_week_s_popular_sounds_are_the_most_made_then_the_most_heard(store):
         ("sound_played", now - DAY, {"sound": "bells"})], [], now=now - 30 * DAY)
     m = compute(store, now=now)
     assert m["popular_7"] == [["menu", 2, 0], ["bells", 1, 1], ["dawn", 0, 2]]
+
+
+def test_the_hours_can_go_back_in_windows_of_48(client, store):
+    """The console's ‹ under « Heure »: each step is 48 hours earlier."""
+    now = int(time.time())
+    env = {"app": None, "os": None, "model": None, "lang": None, "country": None, "test": 0}
+    store.record("a", env, [("ringtone_created", now - 50 * 3600, {})], [], now=now - 50 * 3600)
+    m = compute(store, now=now)
+    assert m["hours_back"] == 0 and sum(h["created"] for h in m["hourly"]) == 0
+    m = compute(store, now=now, hours_back=1)
+    assert m["hours_back"] == 1 and sum(h["created"] for h in m["hourly"]) == 1
+    assert m["hourly"][-1]["at"] == (now - 48 * 3600) // 3600 * 3600
+
+
+def test_active_devices_have_their_previous_window(store):
+    """The console's « + % » beside 24 h / 7 j / 30 j compares each window with the one before it."""
+    now = int(time.time())
+    env = {"app": None, "os": None, "model": None, "lang": None, "country": None, "test": 0}
+    store.record("a", env, [("app_opened", now - 3600, {})], [], now=now - 3600)
+    store.record("b", env, [("app_opened", now - DAY - 3600, {})], [], now=now - DAY - 3600)
+    store.record("c", env, [("app_opened", now - 10 * DAY, {})], [], now=now - 10 * DAY)
+    m = compute(store, now=now)
+    assert (m["active_1"], m["active_1_prev"]) == (1, 1)
+    assert (m["active_7"], m["active_7_prev"]) == (2, 1)
+    assert m["active_30_prev"] == 0
