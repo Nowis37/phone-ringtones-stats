@@ -8,3 +8,7 @@ affiche la console. Tourne sur un NAS personnel, en France.
 - Pas d'adresse IP conservée, pas de journal d'accès.
 
 Tests : `uv run pytest`. Déploiement : voir `compose.nas.yaml`.
+
+`drip/` : le second service du NAS. Chaque heure, il refait la liste des sons
+que lit l'app à partir de la liste complète, en ne gardant que les sons dont le
+jour de sortie est arrivé (`drip/drip.py`).

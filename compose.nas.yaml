@@ -2,7 +2,7 @@
 # tunnel: nothing shared with Sauté.
 #
 #   mkdir -p ~/ringtones-stats && cd ~/ringtones-stats
-#   (copy this file here as compose.yaml, and a .env with the two values below)
+#   (copy this file here as compose.yaml, and a .env with the values below)
 #   mkdir -p .docker && sudo DOCKER_CONFIG=$PWD/.docker docker compose up -d --build
 #
 # DOCKER_CONFIG is not optional on ZimaOS: under sudo, Docker writes to
@@ -21,6 +21,16 @@ services:
       CONSOLE_TOKEN: ${CONSOLE_TOKEN:-}
     volumes:
       - stats-data:/data
+  # Releases the sounds of the day (drip/drip.py): every hour, catalogue.json
+  # rebuilt from catalogue-full.json on R2. The key is the one of Simon's Mac
+  # (~/.config/phoneringtones/r2.env), scoped by Cloudflare to the sounds bucket.
+  sounds:
+    build: https://github.com/Nowis37/phone-ringtones-stats.git#main:drip
+    restart: unless-stopped
+    environment:
+      R2_ENDPOINT: ${R2_ENDPOINT:?copy the three R2_ lines of r2.env into .env}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?copy the three R2_ lines of r2.env into .env}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?copy the three R2_ lines of r2.env into .env}
   # No port is published: the only way in is the tunnel, which does TLS.
   tunnel:
     image: cloudflare/cloudflared:latest
