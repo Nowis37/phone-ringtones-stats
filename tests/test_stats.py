@@ -332,6 +332,8 @@ def test_the_effects_pack_and_the_purchase_reason_are_kept(client, store):
         {"name": "ringtone_created", "props": {"speed": "nightcore", "reverb": "medium"}},
         {"name": "ringtone_created", "props": {"reverb": "huge"}},
         {"name": "speed_sampled", "props": {"speed": "reverb_strong"}},
+        {"name": "speed_sampled", "props": {"speed": "reverb_medium", "from": "bubble"}},
+        {"name": "speed_sampled", "props": {"speed": "nightcore", "from": "toast"}},
         {"name": "paywall_shown", "props": {"reason": "reverb"}},
         {"name": "purchase_started", "props": {"plan": "lifetime", "reason": "reverb"}},
         {"name": "purchase", "props": {"product": "lifetime", "reason": "speed"}},
@@ -346,7 +348,9 @@ def test_the_effects_pack_and_the_purchase_reason_are_kept(client, store):
         {"name": "sound_sent", "props": {"sound": "menu", "app": "net.whatsapp.ShareExtension", "completed": "yes"}}))
     assert store.query("select name, props from events order by id") == [
         ("ringtone_created", '{"reverb": "medium", "speed": "nightcore"}'), ("ringtone_created", "{}"),
-        ("speed_sampled", '{"speed": "reverb_strong"}'), ("paywall_shown", '{"reason": "reverb"}'),
+        ("speed_sampled", '{"speed": "reverb_strong"}'),
+        ("speed_sampled", '{"from": "bubble", "speed": "reverb_medium"}'), ("speed_sampled", '{"speed": "nightcore"}'),
+        ("paywall_shown", '{"reason": "reverb"}'),
         ("purchase_started", '{"plan": "lifetime", "reason": "reverb"}'),
         ("purchase", '{"product": "lifetime", "reason": "speed"}'), ("purchase", '{"product": "lifetime"}'),
         ("onboarding_effect", '{"effect": "slowed_reverb"}'),

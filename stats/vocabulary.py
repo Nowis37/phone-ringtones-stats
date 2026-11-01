@@ -122,9 +122,11 @@ EVENTS: dict[str, dict[str, Any]] = {
     "smart_audio_enhance_undone": {},
     "smart_audio_enhance_compared": {"heard": ("original", "enhanced")},
     # A free user heard the five-second sample of a speed, or (1.4) of slowed +
-    # reverb at one intensity. Read against "purchase".
+    # reverb at one intensity. Read against "purchase". "from" (1 Nov 2026): its
+    # card, the bubble under the effects, or the offer after a listen.
     "speed_sampled": {"speed": ("sped_up", "slowed", "nightcore", "reverb_light", "reverb_medium",
-                                "reverb_strong")},
+                                "reverb_strong"),
+                      "from": ("card", "bubble", "listen")},
     "app_color_chosen": {"kind": ("auto", "free", "premium")},
     # Classique or Pop (Premium, 1.2), chosen in Settings.
     "app_style_chosen": {"style": ("classic", "pop")},
