@@ -271,6 +271,17 @@ def test_the_welcome_is_measured(client, store):
     assert rows == [{"step": "locks"}, {"effect": "bass"}, {"reason": "onboarding"}]
 
 
+def test_the_welcome_questions_keep_only_closed_answers(client, store):
+    device = str(uuid.uuid4())
+    client.post("/v1/events", json=batch(device,
+        {"name": "onboarding_step", "props": {"step": "survey"}},
+        {"name": "welcome_survey", "props": {"heard": "tiktok", "age": "15_17"}},
+        {"name": "welcome_survey", "props": {"heard": "my cousin Léa", "age": "12"}}))
+    import json
+    rows = [json.loads(p) for (p,) in store.query("select props from events order by rowid")]
+    assert rows == [{"step": "survey"}, {"heard": "tiktok", "age": "15_17"}, {}]
+
+
 
 def test_sound_plays_are_counted_per_sound(client, store):
     """A listen of 3 s or more counts per sound, next to its stars and the

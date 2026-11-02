@@ -100,9 +100,15 @@ EVENTS: dict[str, dict[str, Any]] = {
     "ad_watched": {"preloaded": YES_NO},
     "paywall_shown": {"reason": REASONS},
     # The welcome of 1.3: the screen reached, and the effects tried on the demo sound.
-    "onboarding_step": {"step": ("promise", "result", "effects", "locks")},
+    "onboarding_step": {"step": ("promise", "result", "effects", "locks", "survey")},
     "onboarding_effect": {"effect": ("sped_up", "loop", "bass", "enhance", "fade", "volume", "slowed_reverb",
                                      "nightcore")},
+    # 1.4.2: the two optional questions after the welcome's offer, each sent only
+    # if answered. Picked from closed lists; the ages never go below 15, so the
+    # app never learns that someone is under 13.
+    "welcome_survey": {"heard": ("tiktok", "instagram", "youtube", "snapchat", "facebook", "friend",
+                                 "app_store", "web", "other"),
+                       "age": ("under_15", "15_17", "18_24", "25_34", "35_plus")},
     "purchase": {"product": PLANS, "trial": YES_NO, "reason": REASONS},
     # The way to a purchase (1.3): a plan touched, the advantages unfolded, the
     # purchase asked of Apple and how it ended, how the offer was left.

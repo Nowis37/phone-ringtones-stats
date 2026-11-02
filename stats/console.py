@@ -35,6 +35,7 @@ LABELS = {
     "paywall_dismissed": "Offre : quittée",
     "onboarding_step": "Bienvenue : écran atteint",
     "onboarding_effect": "Bienvenue : effet essayé",
+    "welcome_survey": "Bienvenue : réponses aux deux questions",
     "contact_install_tapped": "Contact : installation lancée",
     "contact_assignment_completed": "Contact : fiche ouverte",
     "screen_viewed": "Écran vu",
