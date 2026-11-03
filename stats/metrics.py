@@ -281,6 +281,13 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
             f"where e.name in ({','.join('?' * len(names))}) and e.at >= ? {test}", (*names, SHARING_SINCE)),
     )
 
+    # The welcome's two questions (1.4.2), for « Qui arrive »: each device's
+    # last answer, all time, one count per device. Only what was answered.
+    answers = {device: json.loads(props) for device, props in store.query(
+        f"select e.device, e.props from events e join devices d on d.id = e.device "
+        f"where e.name = 'welcome_survey' {test} order by e.at")}
+    survey = {key: Counter(a[key] for a in answers.values() if key in a).most_common() for key in ("heard", "age")}
+
     def top(column: str) -> list[tuple]:
         return store.query(
             f"select coalesce({column}, '?'), count(*) from devices d where 1=1 {test} "
@@ -333,6 +340,8 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         "sounds": sounds,
         "popular_7": popular_7,
         "by_product": sorted(by_product.items(), key=lambda kv: -kv[1]),
+        "heard": survey["heard"],
+        "age": survey["age"],
         "dropped": store.query("select name, count from dropped order by count desc limit 20"),
         "tests_hidden": 0 if include_tests else store.query("select count(*) from devices where is_test = 1")[0][0],
     }

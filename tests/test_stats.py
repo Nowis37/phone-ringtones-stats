@@ -174,7 +174,19 @@ def test_console_json_counts_ads_purchases_and_sources(store):
     assert m["hourly"][-2]["created"] == 0 and hour["at"] - m["hourly"][-2]["at"] == 3600
     assert (today["created"], today["ads"], today["purchases"], today["active"]) == (3, 1, 1, 1)
     assert m["retention"]["1"] == [0, 0]
-    assert m["collected"] == {"screen_viewed": True, "crash_reported": True}
+    assert m["collected"] == {"screen_viewed": True, "crash_reported": True, "welcome_survey": True}
+
+
+def test_survey_counts_each_devices_last_answer(store):
+    now = int(time.time())
+    env = {"app": None, "os": None, "model": None, "lang": None, "country": None, "test": 0}
+    store.record("a", env, [("welcome_survey", now - 60, {"heard": "youtube"}),
+                            ("welcome_survey", now, {"heard": "tiktok", "age": "18_24"})], [])
+    store.record("b", env, [("welcome_survey", now, {"heard": "tiktok"})], [])
+    store.record("t", {**env, "test": 1}, [("welcome_survey", now, {"heard": "friend", "age": "15_17"})], [])
+    m = compute(store)
+    assert m["heard"] == [("tiktok", 2)] and m["age"] == [("18_24", 1)]
+    assert dict(compute(store, include_tests=True)["heard"]) == {"tiktok": 2, "friend": 1}
 
 
 def test_effects_are_shares_of_the_ringtones_made_in_30_days(store):

@@ -35,7 +35,7 @@ RETENTION_DAYS = RETENTION_SECONDS // 86400
 # Events the shared console has a place for. Until one is declared in vocabulary.py
 # the console says "pas encore collecté" rather than drawing a zero. Both are
 # declared since the app's 1.3: they count from the first device running it.
-AWAITED = ("screen_viewed", "crash_reported")
+AWAITED = ("screen_viewed", "crash_reported", "welcome_survey")
 
 
 def create_app(store: Store | None = None, admin_token: str | None = None,
