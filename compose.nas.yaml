@@ -22,8 +22,10 @@ services:
     volumes:
       - stats-data:/data
   # Releases the sounds of the day (drip/drip.py): every hour, catalogue.json
-  # rebuilt from catalogue-full.json on R2. The key is the one of Simon's Mac
-  # (~/.config/phoneringtones/r2.env), scoped by Cloudflare to the sounds bucket.
+  # rebuilt from catalogue-full.json on R2, with the offer's proof refreshed
+  # (ringtones made from the stats service, App Store rating once a day). The
+  # key is the one of Simon's Mac (~/.config/phoneringtones/r2.env), scoped by
+  # Cloudflare to the sounds bucket.
   sounds:
     build: https://github.com/Nowis37/phone-ringtones-stats.git#main:drip
     restart: unless-stopped
@@ -31,6 +33,9 @@ services:
       R2_ENDPOINT: ${R2_ENDPOINT:?copy the three R2_ lines of r2.env into .env}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?copy the three R2_ lines of r2.env into .env}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?copy the three R2_ lines of r2.env into .env}
+      # The same token as the stats service: the drip reads its console.json
+      # (http://stats:8000) for the ringtones made. Empty: publish.sh's figure stays.
+      CONSOLE_TOKEN: ${CONSOLE_TOKEN:-}
   # No port is published: the only way in is the tunnel, which does TLS.
   tunnel:
     image: cloudflare/cloudflared:latest
