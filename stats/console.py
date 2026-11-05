@@ -41,6 +41,7 @@ LABELS = {
     "screen_viewed": "Écran vu",
     "crash_reported": "Plantage (signalé au lancement suivant)",
     "ad_unavailable": "Pub : pas de pub (création bloquée)",
+    "tracking_answered": "Pub : réponse au suivi d'Apple (ATT)",
     "ad_gate_left": "Pub : écran quitté sans la pub",
     "invite_started": "Bouche-à-oreille : envoyer l'app à un ami (touché)",
     "invite_ended": "Bouche-à-oreille : fin de l'envoi",

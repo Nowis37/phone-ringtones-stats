@@ -551,3 +551,13 @@ def test_console_json_sends_word_of_mouth_without_test_devices(store):
     assert sharing["channels"]["invite"] == {"devices": 1, "sent": 1, "tried": 1}
     assert sharing["channels"]["sound"]["devices"] == 0
     assert sharing["invites_from"]["home"] == [1, 1]
+
+
+def test_the_tracking_answer_of_1_4_3_is_kept(client, store):
+    """1.4.3: the answer to Apple's tracking prompt, from a closed list."""
+    device = str(uuid.uuid4())
+    client.post("/v1/events", json=batch(device,
+        {"name": "tracking_answered", "props": {"status": "authorized"}},
+        {"name": "tracking_answered", "props": {"status": "maybe"}}))
+    assert store.query("select name, props from events order by id") == [
+        ("tracking_answered", '{"status": "authorized"}'), ("tracking_answered", "{}")]

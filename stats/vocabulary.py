@@ -98,6 +98,9 @@ EVENTS: dict[str, dict[str, Any]] = {
     "ringtone_installed": {},
     # 1.4: whether the ad had been loaded ahead, while the person edited.
     "ad_watched": {"preloaded": YES_NO},
+    # 1.4.3: the answer to Apple's tracking prompt, asked once just before the
+    # first ad. "not_determined": iOS did not show it, asked again next time.
+    "tracking_answered": {"status": ("authorized", "denied", "restricted", "not_determined")},
     "paywall_shown": {"reason": REASONS},
     # The welcome of 1.3: the screen reached, and the effects tried on the demo sound.
     "onboarding_step": {"step": ("promise", "result", "effects", "locks", "survey")},
