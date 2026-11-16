@@ -155,8 +155,12 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         back = [d for d in eligible if any(at - first[d] >= n * DAY for at in opens_by_device.get(d, []))]
         retention[n] = (len(back), len(eligible))
     cohorts = weekly_cohorts(first, opens_by_device, now)
+    # Came back at least once: opened the app again a day or more after the
+    # first day, J1's rule. The first batch reaches the server a few seconds
+    # after the first open, which then sat on day −1: nearly every device
+    # counted as back (3 447 on 3 Nov 2026, for 1 571 by J1's rule).
     came_back = sum(1 for d, ats in opens_by_device.items()
-                    if d in first and len({(at - first[d]) // DAY for at in ats} - {0}) > 0)
+                    if d in first and any(at - first[d] >= DAY for at in ats))
 
     per_device = Counter(device for device, _, _ in created)
     buckets = Counter()
@@ -317,6 +321,8 @@ def compute(store: Store, include_tests: bool = False, now: int | None = None, d
         "buckets": [(k, buckets.get(k, 0)) for k in ("0", "1", "2", "3–5", "6+")],
         "retention": retention,
         "came_back": came_back,
+        # 2 since 16 Nov 2026 (J1's rule): delta.py does not compare across it.
+        "came_back_v": 2,
         "cohorts": cohorts,
         "sharing": sharing,
         "daily": daily,

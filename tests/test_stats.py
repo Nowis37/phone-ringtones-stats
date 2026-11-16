@@ -1,3 +1,5 @@
+import json
+import sqlite3
 import time
 import uuid
 
@@ -112,6 +114,19 @@ def test_retention_only_counts_devices_old_enough(store):
     assert m["retention"][7] == (1, 2)
     assert m["retention"][1] == (1, 3)
     assert m["came_back"] == 1
+
+
+def test_the_first_open_before_the_first_batch_is_not_a_return(store):
+    """The first batch reaches the server seconds after the first open: that
+    open is not a day earlier, and the device has not come back."""
+    now = int(time.time())
+    env = {"app": None, "os": None, "model": None, "lang": None, "country": None, "test": 0}
+    store.record("new", env, [("app_opened", now - 3 * DAY - 5, {})], [], now=now - 3 * DAY)
+    store.record("back", env, [("app_opened", now - 3 * DAY - 5, {})], [], now=now - 3 * DAY)
+    store.record("back", env, [("app_opened", now - DAY, {})], [], now=now - DAY)
+    m = compute(store, now=now)
+    assert m["came_back"] == 1
+    assert m["came_back"] == m["retention"][1][0]
 
 
 def test_creations_per_device_and_tests_hidden(store):
@@ -561,3 +576,72 @@ def test_the_tracking_answer_of_1_4_3_is_kept(client, store):
         {"name": "tracking_answered", "props": {"status": "maybe"}}))
     assert store.query("select name, props from events order by id") == [
         ("tracking_answered", '{"status": "authorized"}'), ("tracking_answered", "{}")]
+
+
+# Audit of 16 Nov 2026.
+
+def test_a_failed_batch_leaves_no_transaction_open(client, store, monkeypatch):
+    """A batch that failed mid-transaction left the connection inside it: every
+    later batch got a 500, and "Effacer mes statistiques" was rolled back."""
+    device = str(uuid.uuid4())
+    original = store.db
+    class Flaky:
+        def __getattr__(self, name):
+            return getattr(original, name)
+        def executemany(self, *args):
+            raise sqlite3.OperationalError("database or disk is full")
+    store.db = Flaky()
+    with pytest.raises(sqlite3.OperationalError):
+        store.record(device, {"app": None, "os": None, "model": None, "lang": None, "country": None, "test": 0},
+                     [("app_opened", int(time.time()), {})], [])
+    store.db = original
+    assert not store.db.in_transaction
+    r = client.post("/v1/events", json=batch(device, {"name": "app_opened"}))
+    assert r.status_code == 204
+    assert store.query("select count(*) from events")[0][0] == 1
+
+
+def test_odd_unknown_names_are_counted_without_being_kept(client, store):
+    device = str(uuid.uuid4())
+    r = client.post("/v1/events", content='{"device": "%s", "events": [{"name": "\\ud800"}, {"name": "<b>x</b>"}, {"name": "made_up"}]}' % device,
+                    headers={"Content-Type": "application/json"})
+    assert r.status_code == 204
+    assert dict(store.query("select name, count from dropped")) == {"(invalid)": 2, "made_up": 1}
+    assert client.post("/v1/events", json=batch(device, {"name": "app_opened"})).status_code == 204
+
+
+def test_the_dropped_table_stays_small(store):
+    from stats.store import MAX_DROPPED_NAMES
+    envelope = {"app": None, "os": None, "model": None, "lang": None, "country": None, "test": 0}
+    store.record(str(uuid.uuid4()), envelope, [], [f"name_{i}" for i in range(MAX_DROPPED_NAMES + 20)])
+    assert store.query("select count(*) from dropped")[0][0] == MAX_DROPPED_NAMES + 1
+    assert store.query("select count from dropped where name = '(other)'")[0][0] == 20
+
+
+def test_a_huge_or_too_deep_body_is_refused(client):
+    device = str(uuid.uuid4())
+    huge = '{"device": "%s", "events": [], "pad": "%s"}' % (device, "x" * 300_000)
+    assert client.post("/v1/events", content=huge, headers={"Content-Type": "application/json"}).status_code == 413
+    deep = "[" * 100_000 + "]" * 100_000
+    assert client.post("/v1/events", content=deep, headers={"Content-Type": "application/json"}).status_code in (400, 413)
+    deep = "[" * 50_000 + "]" * 50_000
+    assert client.post("/v1/events", content=deep, headers={"Content-Type": "application/json"}).status_code == 400
+
+
+def test_numbers_are_ascii_digits_only(client, store):
+    device = str(uuid.uuid4())
+    r = client.post("/v1/events", json=batch(device, {"name": "ringtone_created", "props": {"volume": "²", "duration": "١٥"}}))
+    assert r.status_code == 204
+    props = json.loads(store.query("select props from events")[0][0])
+    assert "volume" not in props and "duration" not in props
+
+
+def test_a_failed_catalogue_fetch_is_retried_within_minutes(monkeypatch):
+    from stats.vocabulary import KnownSounds
+    sounds = KnownSounds(frozenset())
+    monkeypatch.setattr(KnownSounds, "URL", "https://example.invalid/catalogue.json")
+    def refuse(*args, **kwargs):
+        raise OSError("offline")
+    monkeypatch.setattr("urllib.request.urlopen", refuse)
+    sounds._refresh()
+    assert time.time() - sounds.fetched > 3600 - 120

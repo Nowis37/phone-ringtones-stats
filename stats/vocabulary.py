@@ -56,14 +56,16 @@ class KnownSounds:
     def _refresh(self) -> None:
         if not self.URL or time.time() - self.fetched < 3600:
             return
-        self.fetched = time.time()  # a failure waits an hour too: never a fetch per event
+        self.fetched = time.time()  # never a fetch per event
         try:
             # Named: Cloudflare turns away Python's default user agent (403).
             request = urllib.request.Request(self.URL, headers={"User-Agent": "phone-ringtones-stats"})
             with urllib.request.urlopen(request, timeout=3) as r:
                 self.load(s.get("id") for s in json.load(r).get("sounds", []))
         except Exception:
-            pass
+            # Again in a minute, not an hour: after a restart, a first fetch
+            # that failed stripped every catalogue sound for an hour.
+            self.fetched = time.time() - 3600 + 60
 
     def __contains__(self, value: object) -> bool:
         if value in self.builtin:
@@ -205,7 +207,8 @@ def clean(name: str, props: object) -> dict[str, Any] | None:
     for key, rule in allowed.items():
         value = props.get(key)
         # The app's queue on disk holds text: a whole number may come as "3".
-        if rule is int and isinstance(value, str) and value.isdigit() and len(value) <= 5:
+        # ASCII only: "²".isdigit() is true, and int("²") raised (a 500).
+        if rule is int and isinstance(value, str) and value.isascii() and value.isdigit() and len(value) <= 5:
             value = int(value)
         if isinstance(rule, (tuple, KnownSounds)) and isinstance(value, str) and value in rule or rule is int and isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 10_000:
             kept[key] = value

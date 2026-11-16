@@ -26,6 +26,7 @@ on its standard input, never on its command line.
 import datetime
 import hashlib
 import json
+import math
 import os
 import subprocess
 import sys
@@ -62,10 +63,23 @@ def floored(count: int) -> int:
 
 
 def rating_of(rows: list) -> float | None:
-    """The worldwide rating to a tenth, as the site and the App Store round it:
-    (average, count) per storefront."""
+    """The worldwide rating to a tenth, rounded down as the site's (4.66 shows
+    4.6, never 4.7): (average, count) per storefront."""
     count = sum(n for _, n in rows)
-    return round(sum(a * n for a, n in rows) / count, 1) if count else None
+    if not count:
+        return None
+    # The epsilon keeps 4.7, which the division may give as 4.69999…
+    return math.floor(sum(a * n for a, n in rows) / count * 10 + 1e-9) / 10
+
+
+def merged_proof(base: dict, live: dict, shown: dict) -> dict:
+    """What the offer shows: the figures read now over catalogue-full.json's,
+    and "plus de N" never below what the app already showed (a device whose
+    stats are erased takes its ringtones out of the count; Simon, 16 Nov 2026)."""
+    proof = {**base, **live}
+    if isinstance(shown.get("ringtones"), int) and "ringtones" in proof:
+        proof["ringtones"] = max(proof["ringtones"], shown["ringtones"])
+    return proof
 
 
 def get(url: str, headers: dict | None = None):
@@ -131,13 +145,16 @@ def release() -> str:
         return f"catalogue-full.json illisible (curl {got.returncode})"
     today = datetime.datetime.now(PARIS).date().isoformat()
     catalogue = visible(json.loads(got.stdout), today)
-    proof = catalogue["proof"] = {**catalogue.get("proof", {}), **live_proof()}
+    # The list the app has now: its proof is the floor of the new one.
+    published = r2("-f", f"{bucket}/catalogue.json")
+    try:
+        shown = json.loads(published.stdout).get("proof", {}) if published.returncode == 0 else {}
+    except ValueError:
+        shown = {}
+    proof = catalogue["proof"] = merged_proof(catalogue.get("proof", {}), live_proof(), shown)
     label = f"{today} (note {proof.get('rating', '?')}, {proof.get('ringtones', '?')} sonneries)"
     data = dumps(catalogue)
-    head = r2("-I", f"{bucket}/catalogue.json").stdout.decode()
-    etag = next((line.split(":", 1)[1].strip().strip('"') for line in head.splitlines()
-                 if line.lower().startswith("etag:")), "")
-    if etag == hashlib.md5(data).hexdigest():
+    if published.returncode == 0 and hashlib.md5(published.stdout).hexdigest() == hashlib.md5(data).hexdigest():
         return f"{label} : inchangé"
     if os.environ.get("DRY_RUN"):
         return f"{label} : à envoyer ({len(data)} octets), DRY_RUN"

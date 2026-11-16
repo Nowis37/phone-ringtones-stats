@@ -8,6 +8,7 @@ GET    /v1/console.json      the same numbers as JSON, for the shared console on
 GET    /health               for the container
 """
 
+import json
 import os
 import re
 import secrets
@@ -16,6 +17,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from . import console, metrics
@@ -31,6 +33,8 @@ SHAPES = {
     "lang": re.compile(r"^[a-z]{2}$"),
 }
 MAX_CLOCK_SKEW = 7 * 86400
+# The app sends 200 events at most, about 40 KB.
+MAX_BODY_BYTES = 256 * 1024
 RETENTION_DAYS = RETENTION_SECONDS // 86400
 # Events the shared console has a place for. Until one is declared in vocabulary.py
 # the console says "pas encore collecté" rather than drawing a zero. Both are
@@ -59,10 +63,25 @@ def create_app(store: Store | None = None, admin_token: str | None = None,
 
     @app.post("/v1/events", status_code=204)
     async def events(request: Request) -> Response:
+        # A bounded body: the whole of it was read and parsed before the
+        # 200-event check, and Cloudflare lets 100 MB through.
+        if int(request.headers.get("content-length") or 0) > MAX_BODY_BYTES:
+            raise HTTPException(413)
+        data = bytearray()
+        async for chunk in request.stream():
+            data += chunk
+            if len(data) > MAX_BODY_BYTES:
+                raise HTTPException(413)
         try:
-            body = await request.json()
-        except ValueError:
+            body = json.loads(data)
+        except (ValueError, RecursionError):
             raise HTTPException(400) from None
+        # The rest blocks (SQLite, the hourly catalogue fetch): off the event
+        # loop, so /health and other batches never wait on it.
+        await run_in_threadpool(ingest, body, request.headers.get("cf-ipcountry", ""))
+        return Response(status_code=204)
+
+    def ingest(body, country: str) -> None:
         if not isinstance(body, dict) or not isinstance(body.get("device"), str) or not UUID.match(body["device"]):
             raise HTTPException(400)
         raw = body.get("events")
@@ -71,7 +90,7 @@ def create_app(store: Store | None = None, admin_token: str | None = None,
         envelope = {k: (v if isinstance(v := body.get(k), str) and rule.match(v) else None)
                     for k, rule in SHAPES.items()}
         envelope["test"] = 1 if body.get("test") is True else 0
-        country = request.headers.get("cf-ipcountry", "").upper()
+        country = country.upper()
         # XX and T1 are Cloudflare's placeholders (unknown, Tor), not countries.
         envelope["country"] = country if re.fullmatch(r"[A-Z]{2}", country) and country not in ("XX", "T1") else None
         now = int(time.time())
@@ -88,7 +107,6 @@ def create_app(store: Store | None = None, admin_token: str | None = None,
             at = int(at) if isinstance(at, (int, float)) and abs(at - now) <= MAX_CLOCK_SKEW else now
             kept.append((item["name"], at, props))
         store.record(body["device"].lower(), envelope, kept, dropped, now=now)
-        return Response(status_code=204)
 
     @app.delete("/v1/devices/{device}", status_code=204)
     def forget(device: str) -> Response:

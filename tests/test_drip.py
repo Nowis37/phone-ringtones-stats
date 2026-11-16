@@ -14,8 +14,19 @@ def test_floored_moves_once_per_hundred():
 
 
 def test_rating_is_weighted_by_count_and_ignores_empty_storefronts():
-    assert drip.rating_of([(4.7, 114), (4.6, 74), (0, 0)]) == 4.7
+    # 4.66, rounded down as CLAUDE.md says: never a tenth the app has not earned.
+    assert drip.rating_of([(4.7, 114), (4.6, 74), (0, 0)]) == 4.6
+    assert drip.rating_of([(4.7, 3), (0, 0)]) == 4.7
     assert drip.rating_of([(0, 0), (0, 0)]) is None
+
+
+def test_the_count_shown_never_goes_down():
+    # Erased devices took 40 ringtones out of the stats: still "plus de 8 200".
+    assert drip.merged_proof({"ringtones": 8000}, {"ringtones": 8100}, {"ringtones": 8200}) == {"ringtones": 8200}
+    assert drip.merged_proof({"ringtones": 8000}, {"ringtones": 8300}, {"ringtones": 8200}) == {"ringtones": 8300}
+    # Nothing read now: catalogue-full.json's figure, still never lower.
+    assert drip.merged_proof({"ringtones": 8000, "rating": 4.6}, {}, {"ringtones": 8200}) == {"ringtones": 8200, "rating": 4.6}
+    assert drip.merged_proof({"rating": 4.6}, {}, {}) == {"rating": 4.6}
 
 
 def test_live_proof_keeps_what_it_cannot_read(monkeypatch):

@@ -2,7 +2,8 @@
 FROM python:3.12-slim
 WORKDIR /app
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir "fastapi>=0.115" "uvicorn>=0.30"
+# The versions the tests run on (uv.lock): a rebuild never picks untested ones.
+RUN pip install --no-cache-dir "fastapi==0.143.0" "starlette==1.8.0" "uvicorn==0.54.0"
 COPY stats ./stats
 ENV DATA_DIR=/data
 VOLUME /data
